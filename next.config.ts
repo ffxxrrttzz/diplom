@@ -2,23 +2,14 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  reactStrictMode: false,
+
   images: {
-    // 🔥 Разрешаем загрузку изображений с этих доменов
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'kinopoiskapiunofficial.tech',
-        pathname: '/images/**', // Разрешаем только папку /images/
-      },
-      {
-        protocol: 'https',
-        hostname: 'avatars.mds.yandex.net',
-        pathname: '/get-kinopoisk-image/**', // Разрешаем только папку /images/
-      },
-      {
-        protocol: 'https',
-        hostname: '*.supabase.co', // Для аватарок из хранилища
-      },
+      { protocol: 'https', hostname: 'kinopoiskapiunofficial.tech' },
+      { protocol: 'https', hostname: 'avatars.mds.yandex.net' },
+      { protocol: 'https', hostname: '*.supabase.co' },
+      { protocol: 'https', hostname: '*.vercel.app' },
     ],
   },
 }

@@ -44,7 +44,6 @@ export function ThreadCommentForm({
         user_id: user.id,
         content: content.trim(),
         parent_id: parentId,
-        parent_comment_id: parentId,
       })
       .select(`
         *,
@@ -58,7 +57,12 @@ export function ThreadCommentForm({
     } else if (data) {
       const newComment = {
         ...data,
-        profiles: data.profiles || { username: user.username || 'Пользователь', avatar_url: null },
+        profiles: data.profiles || {
+          username: user.user_metadata?.username || 
+                    user.email?.split('@')[0] || 
+                    'Пользователь',
+          avatar_url: null,
+        },
         votes: []
       };
       onSuccess?.(newComment);

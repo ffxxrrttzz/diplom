@@ -6,7 +6,7 @@ import { AuthProvider } from '@/components/providers/AuthProvider';
 const inter = Inter({ 
   subsets: ['latin', 'cyrillic'],
   display: 'swap',
-  variable: '--font-inter',
+  // variable: '--font-inter',
 });
 
 export const metadata: Metadata = {
@@ -23,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru" className={inter.variable}>
+    <html lang="ru" className={inter.className}>
       <body className={inter.className}>
         <AuthProvider>
           {children}
