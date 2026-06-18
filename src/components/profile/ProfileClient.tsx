@@ -25,7 +25,6 @@ export function ProfileClient({ profile, data, currentUser }: ProfileClientProps
   const [isFollowersOpen, setIsFollowersOpen] = useState(false);
   const [isFollowingOpen, setIsFollowingOpen] = useState(false);
   
-  // Модальные окна списков
   const [watchlistModal, setWatchlistModal] = useState<{
     open: boolean;
     status: 'watching' | 'watched' | 'planned';
@@ -41,7 +40,7 @@ export function ProfileClient({ profile, data, currentUser }: ProfileClientProps
   };
 
   return (
-    <div className="container mx-auto px-4 max-w-[1440px]">
+    <div className="container mx-auto px-4 max-w-[1440px]" suppressHydrationWarning>
       <ProfileHeader 
         profile={profile} 
         stats={data.stats} 
@@ -69,7 +68,6 @@ export function ProfileClient({ profile, data, currentUser }: ProfileClientProps
         {activeTab === 'threads' && <ThreadsTab threads={data.threads} currentUser={currentUser} />}
       </div>
 
-      {/* Модальные окна */}
       <FollowersModal
         isOpen={isFollowersOpen}
         onClose={() => setIsFollowersOpen(false)}
