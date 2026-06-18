@@ -9,7 +9,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
 
   const { data: { user: currentUser } } = await supabase.auth.getUser()
   
-  // Загружаем профиль по id (UUID)
+  // Загружаем профиль
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('*')
@@ -29,7 +29,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
 
   const userId = profile.id
 
-  // Посты
+  // === Посты ===
   const { data: posts } = await supabase
     .from('posts')
     .select(`
@@ -40,28 +40,18 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
     .order('created_at', { ascending: false })
     .limit(50)
 
-  // Рецензии
+  // === Рецензии ===
   const { data: reviews } = await supabase
-  .from('reviews')
-  .select(`
-    id,
-    title,
-    text,
-    rating,
-    created_at,
-    likes_count,
-    content_id,
-    user_id,
-    content (
-      title,
-      poster_url
-    )
-  `)
-  .eq('user_id', userId)
-  .order('created_at', { ascending: false })
-  .limit(20)
+    .from('reviews')
+    .select(`
+      id, title, text, rating, created_at, likes_count, content_id, user_id,
+      content (title, poster_url)
+    `)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(30)
 
-  // Оценки
+  // === Оценки ===
   const { data: ratings } = await supabase
     .from('user_ratings')
     .select(`
@@ -72,18 +62,42 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
     .order('created_at', { ascending: false })
     .limit(50)
 
-  // Треды
-  const { data: threads } = await supabase
-    .from('threads')
-    .select(`
-      id, title, content, likes_count, created_at, user_id,
-      profiles:user_id (username, avatar_url)
-    `)
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(50)
+  // === Треды ===
+      const { data: threads } = await supabase
+      .from('threads')
+      .select(`
+        id, title, content, likes_count, created_at, user_id, content_id, episode_id,
+        content (title),
+        episodes!threads_episode_id_fkey (
+          episode_number,
+          seasons!season_id_fkey (season_number)
+        ),
+        profiles:user_id (username, avatar_url)
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(50)
 
-  // Статистика подписок
+  // === Статистика списков (watching, watched, plan) ===
+  const { count: watchingCount } = await supabase
+    .from('user_content_status')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('status', 'watching')
+
+  const { count: watchedCount } = await supabase
+    .from('user_content_status')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('status', 'watched')
+
+  const { count: planCount } = await supabase
+    .from('user_content_status')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('status', 'planned')
+
+  // === Статистика подписок ===
   const { count: followersCount } = await supabase
     .from('subscriptions')
     .select('*', { count: 'exact', head: true })
@@ -110,9 +124,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
       followers: followersCount || 0,
       following: followingCount || 0,
       isFollowing,
-      watching: 0,
-      watched: 0,
-      plan: 0,
+      watching: watchingCount || 0,
+      watched: watchedCount || 0,
+      plan: planCount || 0,
     },
     posts: posts || [],
     reviews: reviews || [],

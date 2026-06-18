@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   title: 'Kritika',
   description: 'Смотри, оценивай, обсуждай фильмы и сериалы',
   icons: {
-    icon: '../public/Group 1.svg',
+    icon: 'Group1.svg',
   },
 };
 

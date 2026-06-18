@@ -9,6 +9,7 @@ import { RatingsTab } from './tabs/RatingsTab';
 import { ThreadsTab } from './tabs/ThreadsTab';
 import FollowersModal from './FollowersModal';
 import FollowingModal from './FollowingModal';
+import UserWatchlistModal from './UserWatchlistModal';
 
 type Tab = 'posts' | 'reviews' | 'ratings' | 'threads';
 
@@ -23,10 +24,21 @@ export function ProfileClient({ profile, data, currentUser }: ProfileClientProps
   const [posts, setPosts] = useState(data.posts || []);
   const [isFollowersOpen, setIsFollowersOpen] = useState(false);
   const [isFollowingOpen, setIsFollowingOpen] = useState(false);
+  
+  // Модальные окна списков
+  const [watchlistModal, setWatchlistModal] = useState<{
+    open: boolean;
+    status: 'watching' | 'watched' | 'planned';
+    title: string;
+  }>({ open: false, status: 'watching', title: '' });
 
   const refreshPosts = useCallback(() => {
     window.location.reload();
   }, []);
+
+  const openWatchlist = (status: 'watching' | 'watched' | 'planned', title: string) => {
+    setWatchlistModal({ open: true, status, title });
+  };
 
   return (
     <div className="container mx-auto px-4 max-w-[1440px]">
@@ -36,17 +48,28 @@ export function ProfileClient({ profile, data, currentUser }: ProfileClientProps
         currentUser={currentUser}
         onFollowersClick={() => setIsFollowersOpen(true)}
         onFollowingClick={() => setIsFollowingOpen(true)}
+        onWatchingClick={() => openWatchlist('watching', 'Смотрю')}
+        onWatchedClick={() => openWatchlist('watched', 'Просмотрено')}
+        onPlannedClick={() => openWatchlist('planned', 'В планах')}
       />
 
       <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
       <div className="mt-6">
-        {activeTab === 'posts' && <PostsTab userId={profile.id} posts={posts} onPostCreated={refreshPosts} currentUser={currentUser} />}
+        {activeTab === 'posts' && (
+          <PostsTab 
+            userId={profile.id}
+            posts={posts}
+            onPostCreated={refreshPosts}
+            currentUser={currentUser}
+          />
+        )}
         {activeTab === 'reviews' && <ReviewsTab reviews={data.reviews} currentUser={currentUser} />}
         {activeTab === 'ratings' && <RatingsTab ratings={data.ratings} currentUser={currentUser} />}
         {activeTab === 'threads' && <ThreadsTab threads={data.threads} currentUser={currentUser} />}
       </div>
 
+      {/* Модальные окна */}
       <FollowersModal
         isOpen={isFollowersOpen}
         onClose={() => setIsFollowersOpen(false)}
@@ -59,6 +82,14 @@ export function ProfileClient({ profile, data, currentUser }: ProfileClientProps
         onClose={() => setIsFollowingOpen(false)}
         userId={profile.id}
         username={profile.username}
+      />
+
+      <UserWatchlistModal
+        isOpen={watchlistModal.open}
+        onClose={() => setWatchlistModal(prev => ({ ...prev, open: false }))}
+        userId={profile.id}
+        status={watchlistModal.status}
+        title={watchlistModal.title}
       />
     </div>
   );

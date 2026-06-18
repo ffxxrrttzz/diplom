@@ -11,6 +11,9 @@ interface ProfileHeaderProps {
   currentUser?: UserType | null;
   onFollowersClick: () => void;
   onFollowingClick: () => void;
+  onWatchingClick?: () => void;
+  onWatchedClick?: () => void;
+  onPlannedClick?: () => void;
 }
 
 export function ProfileHeader({ 
@@ -18,7 +21,10 @@ export function ProfileHeader({
   stats, 
   currentUser,
   onFollowersClick,
-  onFollowingClick 
+  onFollowingClick,
+  onWatchingClick,
+  onWatchedClick,
+  onPlannedClick 
 }: ProfileHeaderProps) {
   const isOwner = currentUser?.id === profile.id;
 
@@ -69,6 +75,7 @@ export function ProfileHeader({
               </div>
             </div>
 
+            {/* Статистика */}
             <div className="flex flex-wrap gap-6 border-t border-zinc-800 pt-4">
               <div 
                 className="text-center cursor-pointer hover:opacity-80 transition-opacity"
@@ -86,15 +93,26 @@ export function ProfileHeader({
                 <div className="text-[14px] text-zinc-400">Подписок</div>
               </div>
 
-              <div className="text-center">
+              <div 
+                className="text-center cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={onWatchingClick}
+              >
                 <div className="text-[24px] font-bold text-white">{stats.watching || 0}</div>
                 <div className="text-[14px] text-zinc-400">Смотрю</div>
               </div>
-              <div className="text-center">
+
+              <div 
+                className="text-center cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={onWatchedClick}
+              >
                 <div className="text-[24px] font-bold text-white">{stats.watched || 0}</div>
                 <div className="text-[14px] text-zinc-400">Просмотрено</div>
               </div>
-              <div className="text-center">
+
+              <div 
+                className="text-center cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={onPlannedClick}
+              >
                 <div className="text-[24px] font-bold text-white">{stats.plan || 0}</div>
                 <div className="text-[14px] text-zinc-400">В планах</div>
               </div>

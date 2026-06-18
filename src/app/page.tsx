@@ -40,8 +40,8 @@ export default async function HomePage() {
       {user ? <AuthHeader /> : <GuestHeader />}
       
       <div className="container mx-auto px-4 py-8 space-y-12">
-        <MoviesSlider title="🎬 Новинки фильмов" movies={formatMovies(newMovies)} />
-        <MoviesSlider title="📺 Новинки сериалов" movies={formatMovies(newSeries)} />
+        <MoviesSlider title="Новинки фильмов" movies={formatMovies(newMovies)} />
+        <MoviesSlider title="Новинки сериалов" movies={formatMovies(newSeries)} />
       </div>
     </main>
   )

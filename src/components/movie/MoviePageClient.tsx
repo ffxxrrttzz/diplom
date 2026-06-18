@@ -29,39 +29,39 @@ export function MoviePageClient({ content }: { content: any }) {
   const [seasons, setSeasons] = useState<SeasonWithEpisodes[]>([]);
   const [loadingSeasons, setLoadingSeasons] = useState(false);
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<number | null>(null);
+  const [currentStatus, setCurrentStatus] = useState<string | null>(null);
 
   const { user } = useAuthStore();
   const isSeries = ['series', 'anime'].includes(content.type);
 
   // Загрузка сезонов
   useEffect(() => {
-    if (!isSeries || !content.id) return;
+    if (!user || !content.id) return;
 
-    const fetchSeasons = async () => {
-      setLoadingSeasons(true);
+    const fetchStatus = async () => {
       const supabase = createClient();
-
       const { data } = await supabase
-        .from('seasons')
-        .select(`
-          id,
-          season_number,
-          episodes (
-            id,
-            episode_number,
-            title,
-            description
-          )
-        `)
+        .from('user_content_status')
+        .select('status')
+        .eq('user_id', user.id)
         .eq('content_id', content.id)
-        .order('season_number', { ascending: true });
+        .maybeSingle();
 
-      setSeasons(data || []);
-      setLoadingSeasons(false);
+      setCurrentStatus(data?.status || null);
     };
 
-    fetchSeasons();
-  }, [content.id, isSeries]);
+    fetchStatus();
+  }, [user, content.id]);
+
+  const handleStatusChange = (status: string) => {
+    setCurrentStatus(status);
+  };
+
+  const statusLabels: Record<string, string> = {
+    watching: 'Смотрю',
+    watched: 'Просмотрено',
+    planned: 'В планах',
+  };
 
   return (
     <div className="min-h-screen bg-zinc-950">
@@ -171,9 +171,9 @@ export function MoviePageClient({ content }: { content: any }) {
               </button>
               <button
                 onClick={() => setShowWatchlistModal(true)}
-                className="px-8 py-3 text-[#d9d9d9] bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl font-medium transition"
+                className="px-8 py-3 text-[#d9d9d9] bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl font-medium transition flex items-center gap-2"
               >
-                В избранное
+                {currentStatus ? statusLabels[currentStatus] : 'В избранное'}
               </button>
             </div>
 
@@ -188,7 +188,13 @@ export function MoviePageClient({ content }: { content: any }) {
       </div>
 
       {showRatingModal && <RatingModal contentId={content.id} onClose={() => setShowRatingModal(false)} />}
-      {showWatchlistModal && <WatchlistModal contentId={content.id} onClose={() => setShowWatchlistModal(false)} />}
+      {showWatchlistModal && (
+        <WatchlistModal 
+          contentId={content.id} 
+          onClose={() => setShowWatchlistModal(false)} 
+          onStatusChange={handleStatusChange}
+        />
+      )}
     </div>
   );
 }

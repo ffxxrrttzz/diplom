@@ -102,7 +102,7 @@ export function AuthHeader() {
           {isAdminUser && (
             <Link 
               href="/admin" 
-              className="flex items-center gap-1 px-6 py-1 rounded-xl bg-violet-600 hover:bg-violet-700 transition-all font-medium text-sm text-[#d9d9d9]"
+              className="flex items-center gap-1 px-6 py-1 rounded-xl bg-purple-600 hover:bg-purple-800 transition-all font-medium text-sm text-[#d9d9d9]"
             >
               <Shield size={24} />
               Админка

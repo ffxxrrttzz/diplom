@@ -59,9 +59,9 @@ export default function UserManagement() {
   };
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-3xl p-8">
+    <div className="bg-[#121216] rounded-3xl p-8">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-semibold">Управление пользователями</h2>
+        <h2 className="text-2xl text-[#d9d9d9] font-semibold">Управление пользователями</h2>
         <div className="text-sm text-gray-400">{users.length} пользователей</div>
       </div>
 
@@ -70,14 +70,14 @@ export default function UserManagement() {
         placeholder="Поиск по username или email..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full bg-gray-950 border border-gray-700 rounded-2xl px-5 py-3 mb-6 focus:outline-none focus:border-violet-500"
+        className="w-full bg-[#09090b] text-[#d9d9d9] rounded-2xl px-5 py-3 mb-6 focus:outline-none focus:border-violet-500"
       />
 
       <div className="max-h-[620px] overflow-auto space-y-3 pr-2">
         {users.map((user) => (
           <div
             key={user.id}
-            className="flex items-center justify-between bg-gray-950 hover:bg-gray-900 p-5 rounded-2xl border border-gray-800 group"
+            className="flex items-center text-[#d9d9d9] justify-between bg-[#09090b] hover:bg-purple-950 p-5 rounded-2xl group"
           >
             <div className="flex items-center gap-4">
               {user.avatar_url && (
@@ -97,7 +97,7 @@ export default function UserManagement() {
                 <select
                     value={user.role || 'user'}
                     onChange={(e) => changeRole(user.id, e.target.value)}
-                    className="bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-sm focus:outline-none"
+                    className="bg-[#121216] rounded-xl px-4 py-2 text-sm focus:outline-none"
                     >
                     <option value="user">Пользователь</option>
                     <option value="admin">Администратор</option>

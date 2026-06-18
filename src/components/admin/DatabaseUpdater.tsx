@@ -43,10 +43,9 @@ export default function DatabaseUpdater({ onUpdate }: { onUpdate?: () => void })
   };
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-3xl p-8 h-full flex flex-col">
+    <div className="bg-[#121216] rounded-3xl p-8 h-full flex flex-col">
       <div className="flex items-center gap-4 mb-6">
-        <Database className="w-8 h-8 text-emerald-400" />
-        <h2 className="text-2xl font-semibold">Массовая синхронизация Kinopoisk</h2>
+        <h2 className="text-2xl text-[#d9d9d9]  font-semibold">Синхронизация с базой данных</h2>
       </div>
 
       <div className="space-y-6">
@@ -56,13 +55,13 @@ export default function DatabaseUpdater({ onUpdate }: { onUpdate?: () => void })
           <div className="flex gap-2">
             <button 
               onClick={() => setMode('top')} 
-              className={`flex-1 py-3 rounded-2xl font-medium transition ${mode === 'top' ? 'bg-emerald-600 text-white' : 'bg-gray-800 hover:bg-gray-700'}`}
+              className={`flex-1 py-3 text-[#d9d9d9] rounded-2xl font-medium transition ${mode === 'top' ? 'bg-purple-600 text-[#d9d9d9]' : 'bg-[#09090b] hover:bg-purple-800'}`}
             >
               ТОП-250
             </button>
             <button 
               onClick={() => setMode('popular')} 
-              className={`flex-1 py-3 rounded-2xl font-medium transition ${mode === 'popular' ? 'bg-emerald-600 text-white' : 'bg-gray-800 hover:bg-gray-700'}`}
+              className={`flex-1 py-3 rounded-2xl text-[#d9d9d9] font-medium transition ${mode === 'popular' ? 'bg-purple-600 text-[#d9d9d9]' : 'bg-[#09090b] hover:bg-purple-800'}`}
             >
               Популярные
             </button>
@@ -72,15 +71,15 @@ export default function DatabaseUpdater({ onUpdate }: { onUpdate?: () => void })
         {/* Выбор количества */}
         <div>
           <p className="text-gray-400 mb-2">Количество тайтлов</p>
-          <div className="flex gap-3">
+          <div className="flex gap-3 text-[#d9d9d9]">
             {[10, 25, 50, 75, 100].map((num) => (
               <button
                 key={num}
                 onClick={() => setLimit(num)}
                 className={`px-5 py-2.5 rounded-2xl font-medium transition flex-1 ${
                   limit === num 
-                    ? 'bg-emerald-600 text-white' 
-                    : 'bg-gray-800 hover:bg-gray-700'
+                    ? 'bg-purple-600 text-[#d9d9d9]' 
+                    : 'bg-[#09090b] hover:bg-purple-800'
                 }`}
               >
                 {num}
@@ -93,7 +92,7 @@ export default function DatabaseUpdater({ onUpdate }: { onUpdate?: () => void })
             max="150"
             value={limit}
             onChange={(e) => setLimit(Math.min(150, Math.max(5, Number(e.target.value))))}
-            className="mt-3 w-full bg-gray-950 border border-gray-700 rounded-2xl px-5 py-3 text-center focus:outline-none focus:border-emerald-500"
+            className="mt-3 w-full bg-[#09090b]  rounded-2xl px-5 py-3 text-center text-[#d9d9d9] focus:outline-none focus:border-purple-700"
             placeholder="Или введите своё значение (макс. 150)"
           />
         </div>
@@ -102,16 +101,16 @@ export default function DatabaseUpdater({ onUpdate }: { onUpdate?: () => void })
       <button
         onClick={runMassUpdate}
         disabled={loading}
-        className="w-full mt-8 py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-700 rounded-2xl font-medium flex items-center justify-center gap-3 text-lg transition disabled:cursor-not-allowed"
+        className="w-full mt-8 py-4 text-[#d9d9d9] bg-purple-600 hover:bg-purple-800 disabled:bg-gray-700 rounded-2xl font-medium flex items-center justify-center gap-3 text-lg transition disabled:cursor-not-allowed"
       >
         {loading ? (
           <>
-            <RefreshCw className="animate-spin" size={24} />
+            <RefreshCw className="animate-spin text-[#d9d9d9]" size={24} />
             Синхронизация... (может занять время)
           </>
         ) : (
           <>
-            <RefreshCw size={24} />
+            <RefreshCw className="" size={24} />
             Запустить синхронизацию ({limit} тайтлов)
           </>
         )}

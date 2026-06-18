@@ -41,17 +41,17 @@ export default function AdminDashboard() {
   }, [dateFrom, dateTo]);
 
   return (
-    <div className="min-h-screen bg-gray-950 py-10">
+    <div className="min-h-screen bg-[#09090b] py-10">
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex justify-between items-center mb-10">
           <div>
-            <h1 className="text-4xl font-bold">Админ-панель</h1>
+            <h1 className="text-4xl text-[#d9d9d9] font-bold">Админ-панель</h1>
             <p className="text-gray-400 mt-1">Управление платформой</p>
           </div>
           <button
             onClick={fetchStats}
             disabled={loading}
-            className="flex items-center gap-2 px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-2xl transition disabled:opacity-70"
+            className="flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-800 text-[#d9d9d9] rounded-2xl transition disabled:opacity-70"
           >
             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
             Обновить
@@ -66,7 +66,7 @@ export default function AdminDashboard() {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="bg-gray-900 border border-gray-700 rounded-xl px-5 py-3 text-white"
+              className="bg-[#121216]  rounded-xl px-5 py-3 text-[#d9d9d9]"
             />
           </div>
           <div>
@@ -75,13 +75,13 @@ export default function AdminDashboard() {
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="bg-gray-900 border border-gray-700 rounded-xl px-5 py-3 text-white"
+              className="bg-[#121216] rounded-xl px-5 py-3 text-[#d9d9d9]"
             />
           </div>
 
           <button
             onClick={resetDates}
-            className="mb-1 px-5 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 transition"
+            className="mb-1 px-5 py-3 text-[#d9d9d9] bg-purple-600 hover:bg-purple-800 rounded-xl flex items-center gap-2 transition"
           >
             <X size={18} />
             Сбросить
