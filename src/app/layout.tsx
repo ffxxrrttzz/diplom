@@ -1,15 +1,19 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { AuthProvider } from '@/components/providers/AuthProvider'; // если у тебя есть такой провайдер
+import { AuthProvider } from '@/components/providers/AuthProvider';
 
-const inter = Inter({ subsets: ['latin', 'cyrillic'] });
+const inter = Inter({ 
+  subsets: ['latin', 'cyrillic'],
+  display: 'swap',
+  variable: '--font-inter',
+});
 
 export const metadata: Metadata = {
   title: 'Kritika',
   description: 'Смотри, оценивай, обсуждай фильмы и сериалы',
   icons: {
-    icon: 'Group1.svg',
+    icon: '/Group1.svg',
   },
 };
 
@@ -19,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru">
+    <html lang="ru" className={inter.variable}>
       <body className={inter.className}>
         <AuthProvider>
           {children}
