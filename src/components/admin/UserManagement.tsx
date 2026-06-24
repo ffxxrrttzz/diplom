@@ -2,26 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Trash2, UserCheck } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 
 export default function UserManagement() {
   const [users, setUsers] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   const supabase = createClient();
 
   const loadUsers = async () => {
     setLoading(true);
-    let query = supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (search.trim()) {
-      query = query.ilike('username', `%${search.trim()}%`);
-    }
-
-    const { data, error } = await query;
     if (error) console.error(error);
     setUsers(data || []);
     setLoading(false);
@@ -31,31 +28,57 @@ export default function UserManagement() {
     loadUsers();
   }, [search]);
 
+  const deleteUser = async (userId: string, username: string) => {
+    if (!confirm(`Удалить пользователя ${username} и ВСЕ его данные? Действие необратимо!`)) return;
+
+    setDeletingId(userId);
+
+    try {
+      console.log(`Начинаем удаление пользователя ${userId}`);
+
+      // === 1. Удаляем все дочерние записи ===
+      await supabase.from('votes').delete().eq('user_id', userId);
+      await supabase.from('comments').delete().eq('user_id', userId);
+      await supabase.from('threads').delete().eq('user_id', userId);
+      await supabase.from('reviews').delete().eq('user_id', userId);
+      await supabase.from('posts').delete().eq('user_id', userId);
+      await supabase.from('user_ratings').delete().eq('user_id', userId);
+      
+      await supabase
+        .from('subscriptions')
+        .delete()
+        .or(`follower_id.eq.${userId},following_id.eq.${userId}`);
+
+      // === 2. Удаляем профиль ===
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+
+      if (profileError) {
+        console.error('Ошибка удаления профиля:', profileError);
+        throw profileError;
+      }
+
+      alert(`✅ Пользователь ${username} успешно удалён`);
+      await loadUsers();
+
+    } catch (error: any) {
+      console.error('Ошибка удаления:', error);
+      alert(`❌ Не удалось удалить пользователя:\n${error.message}`);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const changeRole = async (userId: string, newRole: string) => {
     const { error } = await supabase
       .from('profiles')
       .update({ role: newRole })
       .eq('id', userId);
 
-    if (!error) loadUsers();
-  };
-
-  const deleteUser = async (userId: string, username: string) => {
-    if (!confirm(`Удалить пользователя ${username} и все его данные?`)) return;
-
-    // Удаляем связанные данные
-    await supabase.from('posts').delete().eq('user_id', userId);
-    await supabase.from('reviews').delete().eq('user_id', userId);
-    await supabase.from('threads').delete().eq('user_id', userId);
-    await supabase.from('comments').delete().eq('user_id', userId);
-    await supabase.from('votes').delete().eq('user_id', userId);
-    await supabase.from('user_ratings').delete().eq('user_id', userId);
-    await supabase.from('subscriptions').delete().or(`follower_id.eq.${userId},following_id.eq.${userId}`);
-
-    // Удаляем профиль
-    const { error } = await supabase.from('profiles').delete().eq('id', userId);
-
-    if (!error) loadUsers();
+    if (error) alert('Ошибка смены роли');
+    else loadUsers();
   };
 
   return (
@@ -67,7 +90,7 @@ export default function UserManagement() {
 
       <input
         type="text"
-        placeholder="Поиск по username или email..."
+        placeholder="Поиск по username..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="w-full bg-[#09090b] text-[#d9d9d9] rounded-2xl px-5 py-3 mb-6 focus:outline-none focus:border-violet-500"
@@ -77,16 +100,10 @@ export default function UserManagement() {
         {users.map((user) => (
           <div
             key={user.id}
-            className="flex items-center text-[#d9d9d9] justify-between bg-[#09090b] hover:bg-purple-950 p-5 rounded-2xl group"
+            className="flex items-center justify-between bg-[#09090b] hover:bg-purple-950 p-5 rounded-2xl group"
           >
             <div className="flex items-center gap-4">
-              {user.avatar_url && (
-                <img
-                  src={user.avatar_url}
-                  alt={user.username}
-                  className="w-10 h-10 rounded-full object-cover"
-                />
-              )}
+              {user.avatar_url && <img src={user.avatar_url} alt="" className="w-10 h-10 rounded-full" />}
               <div>
                 <p className="font-medium">{user.username}</p>
                 <p className="text-sm text-gray-500">{user.email}</p>
@@ -94,28 +111,26 @@ export default function UserManagement() {
             </div>
 
             <div className="flex items-center gap-3">
-                <select
-                    value={user.role || 'user'}
-                    onChange={(e) => changeRole(user.id, e.target.value)}
-                    className="bg-[#121216] rounded-xl px-4 py-2 text-sm focus:outline-none"
-                    >
-                    <option value="user">Пользователь</option>
-                    <option value="admin">Администратор</option>
-                </select>
+              <select
+                value={user.role || 'user'}
+                onChange={(e) => changeRole(user.id, e.target.value)}
+                className="bg-[#121216] rounded-xl px-4 py-2 text-sm"
+              >
+                <option value="user">User</option>
+                <option value="moderator">Moderator</option>
+                <option value="admin">Admin</option>
+              </select>
 
               <button
                 onClick={() => deleteUser(user.id, user.username)}
-                className="p-3 text-red-400 hover:bg-red-950 hover:text-red-500 rounded-xl transition opacity-0 group-hover:opacity-100"
+                disabled={deletingId === user.id}
+                className="p-3 text-red-400 hover:bg-red-950 rounded-xl transition disabled:opacity-50"
               >
                 <Trash2 size={20} />
               </button>
             </div>
           </div>
         ))}
-
-        {users.length === 0 && !loading && (
-          <p className="text-center text-gray-500 py-10">Пользователи не найдены</p>
-        )}
       </div>
     </div>
   );
