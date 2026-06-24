@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react';
-import { ProfileHeader } from './ProfileHeader';
+import ProfileHeader from './ProfileHeader';
 import { ProfileTabs } from './ProfileTabs';
 import { PostsTab } from './tabs/PostsTab';
 import { ReviewsTab } from './tabs/ReviewsTab';

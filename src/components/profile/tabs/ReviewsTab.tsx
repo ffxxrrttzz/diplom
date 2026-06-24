@@ -116,7 +116,7 @@ export function ReviewsTab({ reviews: initialReviews, currentUser }: ReviewsTabP
             <div key={review.id} className="bg-[#121216] rounded-[20px] p-5 space-y-4">
               <div className="flex items-start gap-4">
                 <Link 
-                  href={`/content/${review.content_id}`}
+                  href={`/movie/${review.content_id}`}
                   className="flex-shrink-0"
                 >
                   <div className="w-[72px] h-[100px] rounded-[12px] bg-zinc-800 overflow-hidden border border-zinc-700">
@@ -137,7 +137,7 @@ export function ReviewsTab({ reviews: initialReviews, currentUser }: ReviewsTabP
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <Link 
-                      href={`/content/${review.content_id}`}
+                      href={`/movie/${review.content_id}`}
                       className="text-[20px] font-medium text-white hover:text-purple-400 line-clamp-1"
                     >
                       {review.content?.title || 'Неизвестный контент'}
