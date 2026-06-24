@@ -49,8 +49,7 @@ export function ProfileClient({ profile, data, currentUser }: ProfileClientProps
         onFollowingClick={() => setIsFollowingOpen(true)}
         onWatchingClick={() => openWatchlist('watching', 'Смотрю')}
         onWatchedClick={() => openWatchlist('watched', 'Просмотрено')}
-        onPlannedClick={() => openWatchlist('planned', 'В планах')}
-      />
+        onPlannedClick={() => openWatchlist('planned', 'В планах')} isOwner={false}      />
 
       <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />
 

@@ -1,10 +1,11 @@
+// src/components/ui/ClientOnly.tsx
 'use client';
 
 import { useState, useEffect, ReactNode } from 'react';
 
 export default function ClientOnly({ 
   children, 
-  fallback = <div className="animate-pulse bg-zinc-800 h-6 w-full rounded" /> 
+  fallback 
 }: { 
   children: ReactNode; 
   fallback?: ReactNode;
@@ -15,5 +16,9 @@ export default function ClientOnly({
     setMounted(true);
   }, []);
 
-  return mounted ? <>{children}</> : <>{fallback}</>;
+  if (!mounted) {
+    return <>{fallback || null}</>;
+  }
+
+  return <>{children}</>;
 }

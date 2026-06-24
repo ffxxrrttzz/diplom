@@ -244,7 +244,7 @@ export function ThreadsTab({
                 </Link>
 
                 <div className="flex items-center justify-between pt-4 mt-4 border-t border-zinc-800">
-                  <div className="flex items-center gap-4">
+                  {/* <div className="flex items-center gap-4">
                     <button
                       onClick={() => toggleLike(thread.id)}
                       className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-sm transition ${
@@ -274,7 +274,7 @@ export function ThreadsTab({
                         {isSubscribed ? 'Подписан' : 'Подписаться'}
                       </button>
                     )}
-                  </div>
+                  </div> */}
 
                   <Link
                     href={`/threads/${thread.id}`}
