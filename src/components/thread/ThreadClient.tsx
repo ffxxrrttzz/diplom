@@ -128,7 +128,10 @@ export function ThreadClient({ thread, initialComments }: ThreadClientProps) {
         {/* Автор треда */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mb-8">
           <div className="flex justify-between items-start">
-            <Link href={`/profile/${thread.author?.id}`} className="flex items-center gap-4 group">
+            <Link 
+              href={`/profile/${thread.author?.id}`}   // ← по id
+              className="flex items-center gap-4 group"
+            >
               <div className="w-12 h-12 rounded-full overflow-hidden border border-zinc-700">
                 {thread.author?.avatar_url ? (
                   <img src={thread.author.avatar_url} alt="" className="w-full h-full object-cover" />
@@ -149,7 +152,10 @@ export function ThreadClient({ thread, initialComments }: ThreadClientProps) {
             </Link>
 
             {!isAuthor && user && (
-              <button onClick={toggleSubscribe} className={`px-5 py-2.5 rounded-2xl flex items-center gap-2 ${isSubscribed ? 'bg-zinc-800 text-zinc-300' : 'bg-purple-600 text-white'}`}>
+              <button 
+                onClick={toggleSubscribe} 
+                className={`px-5 py-2.5 rounded-2xl flex items-center gap-2 ${isSubscribed ? 'bg-zinc-800 text-zinc-300' : 'bg-purple-600 text-white'}`}
+              >
                 {isSubscribed ? <UserCheck size={18} /> : <UserPlus size={18} />}
                 {isSubscribed ? 'Подписан' : 'Подписаться'}
               </button>

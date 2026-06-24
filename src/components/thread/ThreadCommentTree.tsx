@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Heart, MessageCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuthStore } from '@/store/auth-store';
+import Link from 'next/link';
 import { ThreadCommentForm } from './ThreadCommentForm';
 
 export type CommentWithUser = {
@@ -120,7 +121,12 @@ export function ThreadCommentTree({ comments: initialComments, threadId, onComme
 
           <div className="flex-1">
             <div className="flex items-center gap-2 text-sm">
-              <span className="font-semibold text-[#d9d9d9]">@{comment.profiles?.username}</span>
+              <Link
+                href={`/profile/${comment.profiles?.id || comment.user_id}`} // ← исправлено на id
+                className="font-semibold text-[#d9d9d9] hover:text-purple-400"
+              >
+                @{comment.profiles?.username}
+              </Link>
               <span className="text-zinc-500 text-xs">
                 {new Date(comment.created_at).toLocaleDateString('ru-RU')}
               </span>
@@ -153,7 +159,7 @@ export function ThreadCommentTree({ comments: initialComments, threadId, onComme
                   parentId={comment.id}
                   onSuccess={onNewComment}
                   placeholder={`Ответить @${comment.profiles?.username}...`}
-                  
+
                 />
               </div>
             )}

@@ -11,24 +11,20 @@ import { WatchlistModal } from './WatchlistModal';
 import SeasonEpisodeList from '@/components/movie/SeasonEpisodeList';
 import { createClient } from '@/lib/supabase/client';
 
-type SeasonWithEpisodes = {
-  id: number;
-  season_number: number;
-  episodes: {
-    id: number;
-    episode_number: number;
-    title: string;
-    description?: string;
-  }[];
-};
-
-type AverageRatings = {
-  all: number | null;
-  withReview: number | null;
-};
-
 export function MoviePageClient({ content }: { content: any }) {
-  // Защита от отсутствующего контента
+  const [activeTab, setActiveTab] = useState<'reviews' | 'threads'>('reviews');
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [showWatchlistModal, setShowWatchlistModal] = useState(false);
+  const [seasons, setSeasons] = useState<any[]>([]);
+  const [loadingSeasons, setLoadingSeasons] = useState(false);
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState<number | null>(null);
+  const [currentStatus, setCurrentStatus] = useState<string | null>(null);
+  const [averageRatings, setAverageRatings] = useState({ all: null as number | null, withReview: null as number | null });
+
+  const { user } = useAuthStore();
+  const isSeries = ['series', 'anime'].includes(content?.type || '');
+
+  // Защита
   if (!content || !content.id) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -40,21 +36,8 @@ export function MoviePageClient({ content }: { content: any }) {
     );
   }
 
-  const [activeTab, setActiveTab] = useState<'reviews' | 'threads'>('reviews');
-  const [showRatingModal, setShowRatingModal] = useState(false);
-  const [showWatchlistModal, setShowWatchlistModal] = useState(false);
-  const [seasons, setSeasons] = useState<SeasonWithEpisodes[]>([]);
-  const [loadingSeasons, setLoadingSeasons] = useState(false);
-  const [selectedEpisodeId, setSelectedEpisodeId] = useState<number | null>(null);
-  const [currentStatus, setCurrentStatus] = useState<string | null>(null);
-  const [averageRatings, setAverageRatings] = useState<AverageRatings>({ all: null, withReview: null });
-
-  const { user } = useAuthStore();
-  const isSeries = ['series', 'anime'].includes(content.type);
-
   const fetchAverageRatings = useCallback(async () => {
     const supabase = createClient();
-
     const [allRes, reviewRes] = await Promise.all([
       supabase.from('user_ratings').select('rating').eq('content_id', content.id),
       supabase.from('reviews').select('rating').eq('content_id', content.id).not('rating', 'is', null)
@@ -64,11 +47,11 @@ export function MoviePageClient({ content }: { content: any }) {
     const reviewRatings = reviewRes.data || [];
 
     const avgAll = allRatings.length 
-      ? Number((allRatings.reduce((sum, r) => sum + (r.rating || 0), 0) / allRatings.length).toFixed(1))
+      ? Number((allRatings.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / allRatings.length).toFixed(1))
       : null;
 
     const avgWithReview = reviewRatings.length 
-      ? Number((reviewRatings.reduce((sum, r) => sum + (r.rating || 0), 0) / reviewRatings.length).toFixed(1))
+      ? Number((reviewRatings.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / reviewRatings.length).toFixed(1))
       : null;
 
     setAverageRatings({ all: avgAll, withReview: avgWithReview });
@@ -78,7 +61,6 @@ export function MoviePageClient({ content }: { content: any }) {
     const fetchData = async () => {
       const supabase = createClient();
 
-      // Статус просмотра
       if (user) {
         const { data: statusData } = await supabase
           .from('user_content_status')
@@ -90,7 +72,7 @@ export function MoviePageClient({ content }: { content: any }) {
         setCurrentStatus(statusData?.status || null);
       }
 
-      // Сезоны
+      // Загрузка сезонов
       if (isSeries) {
         setLoadingSeasons(true);
         const { data } = await supabase
@@ -98,31 +80,20 @@ export function MoviePageClient({ content }: { content: any }) {
           .select(`
             id, 
             season_number,
-            episodes(id, episode_number, title, description)
+            episodes(id, episode_number, title, description, poster_path)
           `)
           .eq('content_id', content.id)
           .order('season_number', { ascending: true });
 
-        setSeasons((data || []).map(s => ({
-          id: s.id,
-          season_number: s.season_number,
-          episodes: s.episodes || [],
-        })));
+        setSeasons(data || []);
         setLoadingSeasons(false);
       }
 
-      // Средние оценки
       await fetchAverageRatings();
     };
 
     fetchData();
   }, [content.id, user, isSeries, fetchAverageRatings]);
-
-  const handleStatusChange = (status: string) => setCurrentStatus(status);
-
-  const handleRatingSubmitted = () => {
-    fetchAverageRatings();
-  };
 
   const statusLabels: Record<string, string> = {
     watching: 'Смотрю',
@@ -160,62 +131,34 @@ export function MoviePageClient({ content }: { content: any }) {
                 <div className="text-6xl font-bold text-purple-500">
                   {averageRatings.all?.toFixed(1) || '—'}
                 </div>
-                <div className="absolute hidden group-hover:block bg-zinc-800 text-xs text-[#d9d9d9] px-3 py-2 rounded-lg -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap z-10">
-                  Средняя оценка всех пользователей
-                </div>
               </div>
-
               {averageRatings.withReview && (
                 <div className="group relative cursor-pointer">
                   <div className="text-6xl font-bold text-[#FFD700]">
                     {averageRatings.withReview.toFixed(1)}
                   </div>
-                  <div className="absolute hidden group-hover:block bg-zinc-800 text-xs text-[#d9d9d9] px-3 py-2 rounded-lg -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap z-10">
-                    Средняя оценка с рецензиями
-                  </div>
                 </div>
               )}
             </div>
 
-            {/* Описание */}
+            {/* Описание и информация */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 mb-8 text-zinc-300 leading-relaxed">
               {content.description || 'Описание отсутствует.'}
             </div>
 
             {/* Дополнительная информация */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 mb-8 space-y-3 text-zinc-300">
-              {content.countries?.length > 0 && (
-                <p><span className="text-zinc-500">Страна:</span> {content.countries.join(', ')}</p>
-              )}
-              {content.genres?.length > 0 && (
-                <p><span className="text-zinc-500">Жанры:</span> {content.genres.join(', ')}</p>
-              )}
-              {content.duration && (
-                <p><span className="text-zinc-500">Длительность:</span> {content.duration} мин.</p>
-              )}
-              {content.age_rating && (
-                <p><span className="text-zinc-500">Возраст:</span> {content.age_rating}</p>
-              )}
-              {content.directors?.length > 0 && (
-                <p>
-                  <span className="text-zinc-500">Режиссёр{content.directors.length > 1 ? 'ы' : ''}:</span>{' '}
-                  {content.directors.join(', ')}
-                </p>
-              )}
-              {content.actors?.length > 0 && (
-                <p>
-                  <span className="text-zinc-500">В главных ролях:</span>{' '}
-                  {content.actors.slice(0, 10).join(', ')}
-                  {content.actors.length > 10 && ' и др.'}
-                </p>
-              )}
+              {content.countries?.length > 0 && <p><span className="text-zinc-500">Страны:</span> {content.countries.join(', ')}</p>}
+              {content.genres?.length > 0 && <p><span className="text-zinc-500">Жанры:</span> {content.genres.join(', ')}</p>}
+              {content.duration && <p><span className="text-zinc-500">Длительность:</span> {content.duration} мин.</p>}
+              {content.age_rating && <p><span className="text-zinc-500">Возрастной рейтинг:</span> {content.age_rating}</p>}
             </div>
 
-            {/* Сезоны и серии */}
+            {/* Сезоны */}
             {isSeries && (
               <div className="mb-12">
                 {loadingSeasons ? (
-                  <div className="bg-[#121216] rounded-3xl p-8 text-center text-zinc-500">Загрузка сезонов...</div>
+                  <div className="bg-[#121216] rounded-3xl p-8 text-center">Загрузка сезонов...</div>
                 ) : seasons.length > 0 ? (
                   <SeasonEpisodeList
                     seasons={seasons}
@@ -225,7 +168,7 @@ export function MoviePageClient({ content }: { content: any }) {
                   />
                 ) : (
                   <div className="bg-[#121216] rounded-3xl p-8 text-center text-zinc-500">
-                    Информация о сезонах пока отсутствует
+                    Сезоны пока не добавлены
                   </div>
                 )}
               </div>
@@ -233,29 +176,17 @@ export function MoviePageClient({ content }: { content: any }) {
 
             {/* Табы */}
             <div className="flex flex-wrap gap-3 mb-8 border-b border-zinc-800 pb-4">
-              <button
-                onClick={() => setActiveTab('reviews')}
-                className={`px-8 py-3 text-[#d9d9d9] rounded-2xl font-medium transition ${activeTab === 'reviews' ? 'bg-purple-600' : 'bg-zinc-900 hover:bg-zinc-800'}`}
-              >
+              <button onClick={() => setActiveTab('reviews')} className={`px-8 py-3 rounded-2xl font-medium transition ${activeTab === 'reviews' ? 'bg-purple-600' : 'bg-zinc-900 hover:bg-zinc-800'}`}>
                 Рецензии
               </button>
-              <button
-                onClick={() => setActiveTab('threads')}
-                className={`px-8 py-3 text-[#d9d9d9] rounded-2xl font-medium transition ${activeTab === 'threads' ? 'bg-purple-600' : 'bg-zinc-900 hover:bg-zinc-800'}`}
-              >
+              <button onClick={() => setActiveTab('threads')} className={`px-8 py-3 rounded-2xl font-medium transition ${activeTab === 'threads' ? 'bg-purple-600' : 'bg-zinc-900 hover:bg-zinc-800'}`}>
                 Треды
               </button>
-              <button
-                onClick={() => setShowRatingModal(true)}
-                className="px-8 py-3 text-[#d9d9d9] bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl font-medium transition"
-              >
+              <button onClick={() => setShowRatingModal(true)} className="px-8 py-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl font-medium transition">
                 Оценить
               </button>
-              <button
-                onClick={() => setShowWatchlistModal(true)}
-                className="px-8 py-3 text-[#d9d9d9] bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl font-medium transition flex items-center gap-2"
-              >
-                {currentStatus ? statusLabels[currentStatus] : 'В избранное'}
+              <button onClick={() => setShowWatchlistModal(true)} className="px-8 py-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl font-medium transition">
+                {currentStatus ? statusLabels[currentStatus] : 'В планах'}
               </button>
             </div>
 
@@ -265,21 +196,8 @@ export function MoviePageClient({ content }: { content: any }) {
         </div>
       </div>
 
-      {showRatingModal && (
-        <RatingModal 
-          contentId={content.id} 
-          onClose={() => setShowRatingModal(false)} 
-          onRatingSubmitted={handleRatingSubmitted}
-        />
-      )}
-
-      {showWatchlistModal && (
-        <WatchlistModal 
-          contentId={content.id} 
-          onClose={() => setShowWatchlistModal(false)} 
-          onStatusChange={handleStatusChange}
-        />
-      )}
+      {showRatingModal && <RatingModal contentId={content.id} onClose={() => setShowRatingModal(false)} onRatingSubmitted={() => {}} />}
+      {showWatchlistModal && <WatchlistModal contentId={content.id} onClose={() => setShowWatchlistModal(false)} onStatusChange={(status) => setCurrentStatus(status)} />}
     </div>
   );
 }

@@ -22,16 +22,16 @@ interface Thread {
 }
 
 interface ThreadsTabProps {
-  userId?: string;           // Для таба в профиле пользователя
-  contentId?: number;        // Для страницы фильма/сериала
-  episodeId?: number | null; // Для конкретной серии
+  userId?: string;
+  contentId?: number;
+  episodeId?: number | null;
   isProfileTab?: boolean;
 }
 
 export function ThreadsTab({
   userId,
   contentId,
-  episodeId,
+  episodeId = null,           // ← важно задать default
   isProfileTab = false,
 }: ThreadsTabProps) {
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -60,20 +60,29 @@ export function ThreadsTab({
       `)
       .order('created_at', { ascending: false });
 
-    // Фильтрация в зависимости от режима
+    // Фильтрация
     if (isProfileTab && userId) {
       query = query.eq('user_id', userId);
     } else if (contentId) {
       query = query.eq('content_id', contentId);
-      if (episodeId !== undefined) {
+
+      // 🔥 Самое надёжное решение для numeric колонок + null
+      if (episodeId != null) {
         query = query.eq('episode_id', episodeId);
+      } else {
+        query = query.filter('episode_id', 'is', null);
       }
     }
 
     const { data, error } = await query;
-    if (error) console.error('Ошибка загрузки тредов:', error);
 
-    setThreads(data || []);
+    if (error) {
+      console.error('Ошибка загрузки тредов:', error);
+      setThreads([]);
+    } else {
+      setThreads(data || []);
+    }
+
     setLoading(false);
   };
 
@@ -105,7 +114,6 @@ export function ThreadsTab({
       setLiked((prev) => new Set(prev).add(threadId));
     }
 
-    // Обновляем счётчики
     fetchThreads();
   };
 
@@ -142,7 +150,7 @@ export function ThreadsTab({
 
     const { error } = await supabase.from('threads').insert({
       content_id: contentId,
-      episode_id: episodeId || null,
+      episode_id: episodeId ?? null,        // ← ?? вместо ||
       user_id: user.id,
       title: newThreadTitle.trim(),
       content: newThreadContent.trim(),
@@ -151,9 +159,9 @@ export function ThreadsTab({
     if (!error) {
       setNewThreadTitle('');
       setNewThreadContent('');
-      fetchThreads();
+      await fetchThreads();
     } else {
-      console.error(error);
+      console.error('Ошибка создания треда:', error);
       alert('Ошибка при создании треда');
     }
 
@@ -162,7 +170,7 @@ export function ThreadsTab({
 
   return (
     <div className="space-y-10">
-      {/* Форма создания треда (только на странице контента) */}
+      {/* Форма создания треда */}
       {user && contentId && !isProfileTab && (
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
           <h3 className="text-xl font-semibold text-[#d9d9d9] mb-4">
@@ -204,7 +212,7 @@ export function ThreadsTab({
           <div className="text-center py-12 text-zinc-500 bg-zinc-900 rounded-3xl">
             {isProfileTab
               ? 'У пользователя пока нет тредов'
-              : 'Пока нет тредов. Создайте первый!'}
+              : 'Пока нет тредов. Будьте первым!'}
           </div>
         ) : (
           threads.map((thread) => {
@@ -244,38 +252,7 @@ export function ThreadsTab({
                 </Link>
 
                 <div className="flex items-center justify-between pt-4 mt-4 border-t border-zinc-800">
-                  {/* <div className="flex items-center gap-4">
-                    <button
-                      onClick={() => toggleLike(thread.id)}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-sm transition ${
-                        isLiked
-                          ? 'text-purple-500'
-                          : 'text-zinc-400 hover:text-purple-400'
-                      }`}
-                    >
-                      <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
-                      {(thread.likes_count || 0) + (isLiked ? 1 : 0)}
-                    </button>
-
-                    {user && user.id !== thread.user_id && (
-                      <button
-                        onClick={() => toggleSubscribe(thread.user_id)}
-                        className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm transition ${
-                          isSubscribed
-                            ? 'bg-zinc-700 text-zinc-300'
-                            : 'bg-purple-600 hover:bg-purple-700 text-white'
-                        }`}
-                      >
-                        {isSubscribed ? (
-                          <UserCheck className="w-4 h-4" />
-                        ) : (
-                          <UserPlus className="w-4 h-4" />
-                        )}
-                        {isSubscribed ? 'Подписан' : 'Подписаться'}
-                      </button>
-                    )}
-                  </div> */}
-
+                  {/* Лайки и подписки закомментированы — можешь раскомментировать позже */}
                   <Link
                     href={`/threads/${thread.id}`}
                     className="flex items-center gap-2 px-5 py-2 bg-purple-600 hover:bg-purple-700 rounded-2xl text-white text-sm font-medium transition"

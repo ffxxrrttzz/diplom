@@ -1,9 +1,19 @@
+// app/movie/[id]/page.tsx
 import { createClient } from '@/lib/supabase/server';
 import { MoviePageClient } from '@/components/movie/MoviePageClient';
+import { notFound } from 'next/navigation';
 
-export default async function MoviePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function MoviePage({ 
+  params 
+}: { 
+  params: Promise<{ id: string }> 
+}) {
   const { id } = await params;
   const contentId = parseInt(id);
+
+  if (isNaN(contentId)) {
+    notFound();
+  }
 
   const supabase = await createClient();
 
@@ -20,7 +30,7 @@ export default async function MoviePage({ params }: { params: Promise<{ id: stri
     .maybeSingle();
 
   if (!content) {
-    return <div className="text-center py-20 text-2xl">Контент не найден</div>;
+    notFound(); // красивая 404 страница Next.js
   }
 
   return <MoviePageClient content={content} />;
