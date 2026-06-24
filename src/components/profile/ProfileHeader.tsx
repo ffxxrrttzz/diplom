@@ -16,15 +16,15 @@ interface ProfileHeaderProps {
   onPlannedClick?: () => void;
 }
 
-export function ProfileHeader({ 
-  profile, 
-  stats, 
+export function ProfileHeader({
+  profile,
+  stats,
   currentUser,
   onFollowersClick,
   onFollowingClick,
   onWatchingClick,
   onWatchedClick,
-  onPlannedClick 
+  onPlannedClick
 }: ProfileHeaderProps) {
 
   const isOwner = currentUser?.id === profile.id;
@@ -32,14 +32,14 @@ export function ProfileHeader({
   return (
     <div className="relative">
       {/* Баннер */}
-      <div 
+      <div
         className="h-[333px] lg:h-[400px] rounded-[20px] overflow-hidden bg-zinc-800 relative"
         suppressHydrationWarning
       >
         {profile.banner_url ? (
-          <img 
-            src={profile.banner_url} 
-            alt="Banner" 
+          <img
+            src={profile.banner_url}
+            alt="Banner"
             className="w-full h-full object-cover"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
@@ -52,11 +52,11 @@ export function ProfileHeader({
 
       <div className="relative -mt-20 px-4 lg:px-8">
         <div className="bg-[#121216] rounded-[20px] p-6 flex flex-col lg:flex-row items-start lg:items-center gap-6">
-          <div className="w-[150px] h-[150px] rounded-full bg-zinc-700 overflow-hidden border-4 border-[#121216] flex-shrink-0">
+          <div className="w-[150px] h-[150px] rounded-full bg-zinc-700 overflow-hidden border-4 border-[#121216] flex-shrink-0" suppressHydrationWarning>
             {profile.avatar_url ? (
-              <img 
-                src={profile.avatar_url} 
-                alt={profile.username} 
+              <img
+                src={profile.avatar_url}
+                alt={profile.username}
                 className="w-full h-full object-cover"
               />
             ) : (
@@ -75,13 +75,13 @@ export function ProfileHeader({
 
               <div className="flex items-center gap-3 self-start lg:self-auto">
                 {!isOwner && currentUser && (
-                  <FollowButton 
-                    followingId={profile.id} 
-                    initialIsFollowing={stats.isFollowing || false} 
+                  <FollowButton
+                    followingId={profile.id}
+                    initialIsFollowing={stats.isFollowing || false}
                   />
                 )}
                 {isOwner && (
-                  <Link 
+                  <Link
                     href="/profile/edit"
                     className="flex items-center gap-2 px-6 py-2 bg-purple-600 hover:bg-purple-700 rounded-[20px] text-[16px] font-medium text-white transition-colors"
                   >
