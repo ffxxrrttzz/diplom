@@ -36,8 +36,7 @@ export default function DatabaseUpdater({ onUpdate }: { onUpdate?: () => void })
         `Добавлено: ${data.added}\n` +
         `Обновлено: ${data.updated || 0}\n` +
         `Пропущено: ${data.skipped || 0}\n` +
-        `Ошибок: ${data.errors || 0}\n\n` +
-        `Описание, жанры, страны и длительность теперь загружаются.`);
+        `Ошибок: ${data.errors || 0}\n`);
 
       onUpdate?.();
     } catch (err: any) {
@@ -111,7 +110,7 @@ export default function DatabaseUpdater({ onUpdate }: { onUpdate?: () => void })
     <div className="bg-[#121216] rounded-3xl p-8 h-full flex flex-col">
       <div className="flex items-center gap-4 mb-6">
         <Database className="text-purple-500" size={28} />
-        <h2 className="text-2xl text-[#d9d9d9] font-semibold">Синхронизация с Kinopoisk</h2>
+        <h2 className="text-2xl text-[#d9d9d9] font-semibold">Синхронизация</h2>
       </div>
 
       <div className="space-y-8 flex-1">
