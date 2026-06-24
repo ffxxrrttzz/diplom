@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { RefreshCw, Database, Film } from 'lucide-react';
+import { RefreshCw, Database, Film, Shuffle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 export default function DatabaseUpdater({ onUpdate }: { onUpdate?: () => void }) {
   const [loading, setLoading] = useState(false);
+  const [loadingRandom, setLoadingRandom] = useState(false);
   const [loadingSeasons, setLoadingSeasons] = useState(false);
   const [message, setMessage] = useState('');
   const [mode, setMode] = useState<'top' | 'popular'>('top');
@@ -19,10 +20,10 @@ export default function DatabaseUpdater({ onUpdate }: { onUpdate?: () => void })
       const res = await fetch('/api/admin/update-kinopoisk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          mode, 
+        body: JSON.stringify({
+          mode,
           limit: Number(limit),
-          requirePoster: true   // ← новое
+          requirePoster: true
         }),
       });
 
@@ -31,17 +32,50 @@ export default function DatabaseUpdater({ onUpdate }: { onUpdate?: () => void })
       if (!res.ok) throw new Error(data.error || 'Ошибка синхронизации');
 
       setMessage(`✅ Успешно!\n\n` +
-                 `Обработано: ${data.processed}\n` +
-                 `Добавлено: ${data.added}\n` +
-                 `Обновлено: ${data.updated}\n` +
-                 `Пропущено (без постера): ${data.skipped || 0}\n\n` +
-                 `${data.message || ''}`);
-      
+        `Обработано: ${data.processed}\n` +
+        `Добавлено: ${data.added}\n` +
+        `Обновлено: ${data.updated || 0}\n` +
+        `Пропущено: ${data.skipped || 0}\n` +
+        `Ошибок: ${data.errors || 0}\n\n` +
+        `Описание, жанры, страны и длительность теперь загружаются.`);
+
       onUpdate?.();
     } catch (err: any) {
       setMessage(`❌ ${err.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const runRandomUpdate = async () => {
+    setLoadingRandom(true);
+    setMessage('Добавляем случайные новые тайтлы...');
+
+    try {
+      const res = await fetch('/api/admin/update-kinopoisk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'popular',
+          limit: 30,
+          forceNew: true
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || 'Ошибка');
+
+      setMessage(`✅ Успешно!\n\n` +
+        `Добавлено новых: ${data.added}\n` +
+        `Пропущено: ${data.skipped || 0}\n` +
+        `Ошибок: ${data.errors || 0}`);
+
+      onUpdate?.();
+    } catch (err: any) {
+      setMessage(`❌ ${err.message}`);
+    } finally {
+      setLoadingRandom(false);
     }
   };
 
@@ -59,11 +93,12 @@ export default function DatabaseUpdater({ onUpdate }: { onUpdate?: () => void })
 
       if (!res.ok) throw new Error(data.error || 'Ошибка');
 
-      setMessage(`✅ Сезоны и серии обновлены!\n\n` +
-                 `Обработано сериалов: ${data.processed}\n` +
-                 `Добавлено сезонов: ${data.seasonsAdded}\n` +
-                 `Добавлено серий: ${data.episodesAdded}`);
-      
+      setMessage(`✅ Успешно!\n\n` +
+        `Обработано сериалов: ${data.processed}\n` +
+        `Добавлено сезонов: ${data.seasonsAdded || 0}\n` +
+        `Добавлено эпизодов: ${data.episodesAdded || 0}\n` +
+        `Ошибок: ${data.errors || 0}`);
+
       onUpdate?.();
     } catch (err: any) {
       setMessage(`❌ ${err.message}`);
@@ -125,9 +160,27 @@ export default function DatabaseUpdater({ onUpdate }: { onUpdate?: () => void })
             {loading ? (
               <> <RefreshCw className="animate-spin" size={24} /> Синхронизация...</>
             ) : (
-              <> <Film size={24} /> Синхронизировать {limit} тайтлов (только с постером) </>
+              <> <Film size={24} /> Синхронизировать {limit} тайтлов </>
             )}
           </button>
+        </div>
+
+        {/* Случайные 10 */}
+        <div className="pt-4">
+          <button
+            onClick={runRandomUpdate}
+            disabled={loadingRandom}
+            className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-700 rounded-2xl font-medium flex items-center justify-center gap-3 transition"
+          >
+            {loadingRandom ? (
+              <> <RefreshCw className="animate-spin" size={24} /> Загрузка случайных...</>
+            ) : (
+              <> <Shuffle size={24} /> Добавить случайные 10 (с постером) </>
+            )}
+          </button>
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            Берёт из популярных и добавляет только с постером
+          </p>
         </div>
 
         {/* Синхронизация сезонов */}
@@ -143,9 +196,6 @@ export default function DatabaseUpdater({ onUpdate }: { onUpdate?: () => void })
               <> <Database size={24} /> Синхронизировать сезоны и серии </>
             )}
           </button>
-          <p className="text-xs text-gray-500 mt-3 text-center">
-            Обновляет сезоны и эпизоды для уже существующих сериалов/аниме
-          </p>
         </div>
       </div>
 

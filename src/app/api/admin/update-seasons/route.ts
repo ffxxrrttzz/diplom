@@ -19,67 +19,129 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Доступ запрещён' }, { status: 403 });
     }
 
+    const KP_API_KEY = process.env.KINOPOISK_API_KEY;
+    if (!KP_API_KEY) return NextResponse.json({ error: 'KINOPOISK_API_KEY не настроен' }, { status: 500 });
+
+    const baseUrl = 'https://kinopoiskapiunofficial.tech/api/v2.2';
+
     const { data: seriesList } = await supabase
       .from('content')
       .select('id, external_id, title')
       .in('type', ['series', 'anime'])
-      .not('external_id', 'is', null)
-      .limit(50); // ограничение для безопасности
+      .gt('external_id', 100000)
+      .order('id', { ascending: true });
 
-    if (!seriesList?.length) {
-      return NextResponse.json({ message: 'Нет сериалов для обработки' });
-    }
+    console.log(`🔍 Найдено сериалов: ${seriesList?.length || 0}`);
 
+    let processed = 0;
     let seasonsAdded = 0;
     let episodesAdded = 0;
-    let processed = 0;
-    const apiKey = process.env.KINOPOISK_API_KEY!;
-    const baseUrl = process.env.KINOPOISK_BASE_URL!;
+    let errors = 0;
 
-    for (const series of seriesList) {
+    for (const series of seriesList || []) {
       processed++;
-      try {
-        const res = await fetch(
-          `${baseUrl}/api/v2.2/films/${series.external_id}/seasons`,
-          {
-            headers: { 'X-API-KEY': apiKey },
-            signal: AbortSignal.timeout(8000),
+      const kpId = series.external_id;
+      if (!kpId) continue;
+
+      await new Promise(r => setTimeout(r, 600)); // увеличенная задержка
+
+      const seasonsUrl = `${baseUrl}/films/${kpId}/seasons`;
+      console.log(`📡 [${kpId}] ${series.title}`);
+
+      const res = await fetch(seasonsUrl, {
+        headers: { 'X-API-KEY': KP_API_KEY },
+      });
+
+      let seasonsData: any = { seasons: [] };
+
+      if (res.ok) {
+        seasonsData = await res.json();
+        console.log(`   → /seasons вернул ${seasonsData.seasons?.length || 0} сезонов`);
+      } else {
+        console.warn(`   ⚠️ HTTP ${res.status} для /seasons`);
+      }
+
+      let seasons = seasonsData.seasons || [];
+
+      // Fallback — пробуем получить сезоны из детального фильма
+      if (seasons.length === 0) {
+        await new Promise(r => setTimeout(r, 300));
+        const detailRes = await fetch(`${baseUrl}/films/${kpId}`, {
+          headers: { 'X-API-KEY': KP_API_KEY },
+        });
+
+        if (detailRes.ok) {
+          const detail = await detailRes.json();
+          if (detail.seasons && detail.seasons.length > 0) {
+            seasons = detail.seasons;
+            console.log(`   → Fallback /films вернул ${seasons.length} сезонов`);
           }
-        );
+        }
+      }
 
-        if (!res.ok) continue;
+      if (seasons.length === 0) {
+        console.log(`   ❌ Нет данных о сезонах для ${series.title}`);
+        continue;
+      }
 
-        const data = await res.json();
+      for (const season of seasons) {
+        const seasonNumber = season.number || season.seasonNumber || 1;
 
-        for (const season of (data.items || [])) {
-          const { data: seasonRecord } = await supabase
+        const { data: existingSeason } = await supabase
+          .from('seasons')
+          .select('id')
+          .eq('content_id', series.id)
+          .eq('season_number', seasonNumber)
+          .maybeSingle();
+
+        let seasonId: number;
+
+        if (existingSeason) {
+          seasonId = existingSeason.id;
+        } else {
+          const { data: newSeason, error } = await supabase
             .from('seasons')
-            .upsert({
+            .insert({
               content_id: series.id,
-              season_number: season.number,
-            }, { onConflict: 'content_id,season_number' })
+              season_number: seasonNumber,
+              tmdb_id: null,
+            })
             .select('id')
             .single();
 
-          if (seasonRecord?.id) {
-            seasonsAdded++;
-
-            for (const ep of (season.episodes || [])) {
-              await supabase.from('episodes').upsert({
-                season_id: seasonRecord.id,
-                episode_number: ep.episodeNumber,
-                title: ep.nameRu || ep.nameEn || `Эпизод ${ep.episodeNumber}`,
-                description: ep.synopsis || null,
-                poster_path: ep.posterUrl || null,
-              }, { onConflict: 'season_id,episode_number' });
-
-              episodesAdded++;
-            }
+          if (error) {
+            console.error(`   ❌ Ошибка сезона ${seasonNumber}:`, error.message);
+            errors++;
+            continue;
           }
+
+          seasonId = newSeason!.id;
+          seasonsAdded++;
+          console.log(`   ✅ Добавлен сезон ${seasonNumber}`);
         }
-      } catch (err) {
-        console.error(`Ошибка сериала ${series.title}:`, err);
-        continue; // продолжаем с остальными
+
+        // Эпизоды
+        const episodes = season.episodes || [];
+        for (const ep of episodes) {
+          const epNumber = ep.episodeNumber || ep.number || 1;
+          const episodeData = {
+            season_id: seasonId,
+            episode_number: epNumber,
+            title: ep.nameRu || ep.nameEn || `Эпизод ${epNumber}`,
+            description: ep.synopsis || ep.description || null,
+            poster_path: ep.posterUrl || null,
+            tmdb_id: null,
+          };
+
+          const { error: epError } = await supabase
+            .from('episodes')
+            .upsert(episodeData, { 
+              onConflict: 'season_id,episode_number', 
+              ignoreDuplicates: true 
+            });
+
+          if (!epError) episodesAdded++;
+        }
       }
     }
 
@@ -88,11 +150,12 @@ export async function POST(request: NextRequest) {
       processed,
       seasonsAdded,
       episodesAdded,
-      message: `Обработано ${processed} сериалов`
+      errors,
+      message: `Обработано: ${processed} | Сезонов: ${seasonsAdded} | Эпизодов: ${episodesAdded}`
     });
 
   } catch (error: any) {
-    console.error('Season Update Error:', error);
-    return NextResponse.json({ error: error.message || 'Внутренняя ошибка' }, { status: 500 });
+    console.error('❌ Критическая ошибка:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

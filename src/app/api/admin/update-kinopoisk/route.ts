@@ -20,90 +20,146 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { mode = 'top', limit = 20, requirePoster = true } = body;
+    const { mode = 'popular', limit = 30, forceNew = false } = body;
 
-    // Используем стабильный Kinopoisk Unofficial API
     const KP_API_KEY = process.env.KINOPOISK_API_KEY;
+    if (!KP_API_KEY) return NextResponse.json({ error: 'KINOPOISK_API_KEY не настроен' }, { status: 500 });
+
     const baseUrl = 'https://kinopoiskapiunofficial.tech/api/v2.2';
+    const listUrl = `${baseUrl}/films?order=NUM_VOTE&type=ALL&limit=${limit}`;
 
-    let url = '';
-    if (mode === 'top') {
-      url = `${baseUrl}/films/top?type=TOP_250_BEST_FILMS&page=1`;
-    } else {
-      url = `${baseUrl}/films?order=NUM_VOTE&type=ALL&limit=${limit}`;
-    }
+    console.log(`📡 Запрос списка: ${listUrl}`);
 
-    console.log(`📡 Запрос к Kinopoisk Unofficial: ${url}`);
+    const listRes = await fetch(listUrl, { headers: { 'X-API-KEY': KP_API_KEY } });
+    if (!listRes.ok) throw new Error(`List API error: ${listRes.status}`);
 
-    const response = await fetch(url, {
-      headers: {
-        'X-API-KEY': KP_API_KEY!,
-        'Content-Type': 'application/json',
-      },
-      signal: AbortSignal.timeout(15000),
-    });
+    const listData = await listRes.json();
+    const films = listData.items || [];
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Kinopoisk API: ${response.status} - ${text}`);
-    }
+    let processed = 0;
+    let added = 0;
+    let updated = 0;
+    let skipped = 0;
+    let errors = 0;
 
-    const data = await response.json();
-    const films = mode === 'top' ? data.films : data.items || [];
-
-    let processed = 0, updated = 0, skipped = 0;
-
-    for (const film of films.slice(0, Number(limit))) {
+    for (const film of films) {
       processed++;
-
-      const posterUrl = film.posterUrl || film.poster?.previewUrl || film.poster?.url;
-
-      if (requirePoster && !posterUrl) {
+      const kpId = film.kinopoiskId || film.filmId;
+      if (!kpId) {
         skipped++;
         continue;
       }
 
-      let title = (film.nameRu || film.nameOriginal || `Unknown [${film.kinopoiskId}]`).trim();
-      const originalTitle = (film.nameOriginal || film.nameEn)?.trim() || null;
+      // === ДЕТАЛЬНЫЙ ЗАПРОС ===
+      await new Promise(r => setTimeout(r, 350)); // rate-limit защита
 
-      if (title.includes('Unknown') || title.length < 3) {
-        title = originalTitle || title;
+      const detailUrl = `${baseUrl}/films/${kpId}`;
+      console.log(`📡 Детали для ${kpId} → ${film.nameRu}`);
+
+      const detailRes = await fetch(detailUrl, {
+        headers: { 'X-API-KEY': KP_API_KEY },
+      });
+
+      if (!detailRes.ok) {
+        console.error(`Не удалось получить детали ${kpId}`);
+        skipped++;
+        continue;
       }
 
-      const contentData = {
-        external_id: film.kinopoiskId,
-        title,
-        original_title: originalTitle,
-        type: film.type === 'FILM' ? 'movie' : 'series',
-        release_year: film.year,
-        description: film.description || null,
-        poster_url: posterUrl,
-        rating: film.ratingKinopoisk || film.rating?.kinopoisk,
-        duration: film.filmLength,
-        age_rating: film.ratingAgeLimits,
-        countries: film.countries?.map((c: any) => c.country) || null,
-        genres: film.genres?.map((g: any) => g.genre) || null,
+      const detail = await detailRes.json();
+
+      const posterUrl = detail.posterUrl || detail.poster?.url || film.posterUrl;
+      if (!posterUrl) {
+        skipped++;
+        continue;
+      }
+
+      // Тип контента
+      const typeMap: Record<string, string> = {
+        FILM: 'movie',
+        TV_SERIES: 'series',
+        MINI_SERIES: 'series',
+        VIDEO: 'movie',
+        UNKNOWN: 'movie',
       };
 
-      const { error } = await supabase
-        .from('content')
-        .upsert(contentData, { onConflict: 'external_id' });
+      const apiType = detail.type || film.type || 'FILM';
+      const contentType = typeMap[apiType] || 'movie';
 
-      if (!error) updated++;
+      const realKpId = detail.kinopoiskId || detail.filmId || kpId;
+
+      // external_id
+      const externalId = forceNew
+        ? -Math.abs(Date.now() % 100000000 + Math.floor(Math.random() * 100000))
+        : realKpId;
+
+      const contentData = {
+        external_id: externalId,
+        title: (detail.nameRu || detail.nameOriginal || film.nameRu || 'Без названия').trim(),
+        original_title: detail.nameOriginal || null,
+        type: contentType,
+        release_year: detail.year ? parseInt(String(detail.year)) : null,
+        description: detail.description || null,
+        poster_url: posterUrl,
+        backdrop_url: detail.coverUrl || null,
+        rating: detail.ratingKinopoisk ? parseFloat(String(detail.ratingKinopoisk)) : null,
+        duration: detail.filmLength ? parseInt(String(detail.filmLength)) : null,
+        age_rating: detail.ratingAgeLimits ? detail.ratingAgeLimits.replace('age', '') : null,
+        countries: detail.countries?.map((c: any) => c.country) || [],
+        genres: detail.genres?.map((g: any) => g.genre) || [],
+        directors: detail.directors?.map((d: any) => d.name) || [],
+        actors: detail.actors?.slice(0, 12).map((a: any) => a.name) || [],
+        persons: detail.persons || null,
+        last_synced_at: new Date().toISOString(),
+      };
+
+      console.log(`→ Сохранение: ${contentData.title} | type: ${contentType} | kpId: ${realKpId}`);
+
+      // Проверка существования
+      const { data: existing } = await supabase
+        .from('content')
+        .select('id, external_id')
+        .eq('external_id', realKpId)   // ← важно!
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from('content')
+          .update(contentData)
+          .eq('id', existing.id);
+
+        if (error) {
+          console.error(`Ошибка обновления ${contentData.title}:`, error.message);
+          errors++;
+        } else {
+          updated++;
+        }
+      } else {
+        const { error } = await supabase
+          .from('content')
+          .insert(contentData);
+
+        if (error) {
+          console.error(`Ошибка вставки ${contentData.title}:`, error.message);
+          errors++;
+        } else {
+          added++;
+        }
+      }
     }
 
     return NextResponse.json({
       success: true,
       processed,
+      added,
       updated,
       skipped,
-      message: `✅ Синхронизация завершена (Kinopoisk Unofficial). Обработано: ${processed}, Обновлено: ${updated}, Пропущено: ${skipped}`
+      errors,
+      message: `✅ Добавлено: ${added} | Обновлено: ${updated} | Пропущено: ${skipped} | Ошибок: ${errors}`
     });
 
   } catch (error: any) {
-    console.error('❌ FULL ERROR:', error);
-    return NextResponse.json({ 
-      error: error.message || 'Внутренняя ошибка сервера' 
-    }, { status: 500 });
+    console.error('❌ Критическая ошибка:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
