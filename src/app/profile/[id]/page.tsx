@@ -1,20 +1,21 @@
 // src/app/profile/[id]/page.tsx
-import { createClient } from '@/lib/supabase/server'
-import { ProfileClient } from '@/components/profile/ProfileClient'
-import { AuthHeader } from '@/components/layout/AuthHeader'
+import { createClient } from '@/lib/supabase/server';
+import { ProfileClient } from '@/components/profile/ProfileClient';
+import { AuthHeader } from '@/components/layout/AuthHeader';
+import { GuestHeader } from '@/components/layout/GuestHeader';
 
 export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const supabase = await createClient()
+  const { id } = await params;
+  const supabase = await createClient();
 
-  const { data: { user: currentUser } } = await supabase.auth.getUser()
+  const { data: { user: currentUser } } = await supabase.auth.getUser();
   
   // Загружаем профиль
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', id)
-    .maybeSingle()
+    .maybeSingle();
 
   if (profileError || !profile) {
     return (
@@ -24,10 +25,10 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
           <a href="/" className="text-purple-400 hover:underline">Вернуться на главную</a>
         </div>
       </main>
-    )
+    );
   }
 
-  const userId = profile.id
+  const userId = profile.id;
 
   // === Посты ===
   const { data: posts } = await supabase
@@ -38,7 +39,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
     `)
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .limit(50)
+    .limit(50);
 
   // === Рецензии ===
   const { data: reviews } = await supabase
@@ -49,7 +50,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
     `)
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .limit(30)
+    .limit(30);
 
   // === Оценки ===
   const { data: ratings } = await supabase
@@ -60,63 +61,62 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
     `)
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .limit(50)
+    .limit(50);
 
   // === Треды ===
-      const { data: threads } = await supabase
-      .from('threads')
-      .select(`
-        id, title, content, likes_count, created_at, user_id, content_id, episode_id,
-        content (title),
-        episodes!threads_episode_id_fkey (
-          episode_number,
-          seasons!season_id_fkey (season_number)
-        ),
-        profiles:user_id (username, avatar_url)
-      `)
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(50)
+  const { data: threads } = await supabase
+    .from('threads')
+    .select(`
+      id, title, content, likes_count, created_at, user_id, content_id, episode_id,
+      content (title),
+      episodes!threads_episode_id_fkey (
+        episode_number,
+        seasons!season_id_fkey (season_number)
+      ),
+      profiles:user_id (username, avatar_url)
+    `)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(50);
 
-  // === Статистика списков (watching, watched, plan) ===
+  // Статистика
   const { count: watchingCount } = await supabase
     .from('user_content_status')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .eq('status', 'watching')
+    .eq('status', 'watching');
 
   const { count: watchedCount } = await supabase
     .from('user_content_status')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .eq('status', 'watched')
+    .eq('status', 'watched');
 
   const { count: planCount } = await supabase
     .from('user_content_status')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .eq('status', 'planned')
+    .eq('status', 'planned');
 
-  // === Статистика подписок ===
   const { count: followersCount } = await supabase
     .from('subscriptions')
     .select('*', { count: 'exact', head: true })
-    .eq('following_id', userId)
+    .eq('following_id', userId);
 
   const { count: followingCount } = await supabase
     .from('subscriptions')
     .select('*', { count: 'exact', head: true })
-    .eq('follower_id', userId)
+    .eq('follower_id', userId);
 
-  let isFollowing = false
+  let isFollowing = false;
   if (currentUser) {
     const { data: sub } = await supabase
       .from('subscriptions')
       .select('id')
       .eq('follower_id', currentUser.id)
       .eq('following_id', userId)
-      .maybeSingle()
-    isFollowing = !!sub
+      .maybeSingle();
+    isFollowing = !!sub;
   }
 
   const data = {
@@ -132,16 +132,18 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
     reviews: reviews || [],
     ratings: ratings || [],
     threads: threads || [],
-  }
+  };
 
   return (
     <main className="min-h-screen bg-[#09090b] text-white pb-20">
-      <AuthHeader />
+      {/* ← Вот исправление */}
+      {currentUser ? <AuthHeader /> : <GuestHeader />}
+      
       <ProfileClient 
         profile={profile} 
         data={data} 
         currentUser={currentUser} 
       />
     </main>
-  )
+  );
 }

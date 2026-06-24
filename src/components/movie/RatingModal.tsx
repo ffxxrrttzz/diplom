@@ -7,9 +7,10 @@ import { useAuthStore } from '@/store/auth-store';
 interface RatingModalProps {
   contentId: number;
   onClose: () => void;
+  onRatingSubmitted?: () => void;   // ← новое
 }
 
-export function RatingModal({ contentId, onClose }: RatingModalProps) {
+export function RatingModal({ contentId, onClose, onRatingSubmitted }: RatingModalProps) {
   const [rating, setRating] = useState(7);
   const [loading, setLoading] = useState(false);
   const { user } = useAuthStore();
@@ -19,14 +20,20 @@ export function RatingModal({ contentId, onClose }: RatingModalProps) {
     if (!user) return;
     setLoading(true);
 
-    await supabase.from('user_ratings').upsert({
+    const { error } = await supabase.from('user_ratings').upsert({
       user_id: user.id,
       content_id: contentId,
       rating,
     });
 
     setLoading(false);
-    onClose();
+
+    if (!error) {
+      onRatingSubmitted?.();   // ← уведомляем родителя
+      onClose();
+    } else {
+      alert('Ошибка при сохранении оценки');
+    }
   };
 
   return (

@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+:root {
+  --font-inter: 'Inter', system-ui, sans-serif;
+}
+
+body {
+  font-family: var(--font-inter);
+}
+
 @theme {
   --color-background: #09090b;
   --color-foreground: #ffffff;

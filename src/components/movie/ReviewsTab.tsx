@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuthStore } from '@/store/auth-store';
 import { Heart } from 'lucide-react';
 
-
 type Review = {
   id: number;
   title: string | null;
@@ -32,6 +31,7 @@ export function ReviewsTab({
   const [newReviewTitle, setNewReviewTitle] = useState('');
   const [newReviewRating, setNewReviewRating] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [likedReviews, setLikedReviews] = useState<Set<number>>(new Set()); // ← для UI
 
   const { user } = useAuthStore();
   const supabase = createClient();
@@ -55,11 +55,74 @@ export function ReviewsTab({
       query = query.eq('episode_id', episodeId);
     }
 
-    const { data, error } = await query;
-    if (error) console.error(error);
-    
+    const { data } = await query;
     setReviews(data || []);
+
+    // Загружаем, какие рецензии уже лайкнул текущий пользователь
+    if (user && data) {
+      const reviewIds = data.map(r => r.id);
+      const { data: votes } = await supabase
+        .from('votes')
+        .select('review_id')
+        .in('review_id', reviewIds)
+        .eq('user_id', user.id);
+
+      const likedSet = new Set(votes?.map(v => v.review_id) || []);
+      setLikedReviews(likedSet);
+    }
+
     setLoading(false);
+  };
+
+  const toggleLike = async (reviewId: number) => {
+    if (!user) return alert('Войдите в аккаунт');
+
+    const isCurrentlyLiked = likedReviews.has(reviewId);
+
+    // Оптимистичное обновление
+    setLikedReviews(prev => {
+      const newSet = new Set(prev);
+      if (isCurrentlyLiked) newSet.delete(reviewId);
+      else newSet.add(reviewId);
+      return newSet;
+    });
+
+    setReviews(prev => 
+      prev.map(review => 
+        review.id === reviewId 
+          ? { 
+              ...review, 
+              likes_count: isCurrentlyLiked 
+                ? Math.max(0, review.likes_count - 1) 
+                : review.likes_count + 1 
+            }
+          : review
+      )
+    );
+
+    try {
+      if (isCurrentlyLiked) {
+        await supabase
+          .from('votes')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('review_id', reviewId);
+      } else {
+        await supabase
+          .from('votes')
+          .insert({
+            user_id: user.id,
+            review_id: reviewId,
+            value: 1,
+          });
+      }
+
+      // Небольшая задержка для синхронизации с триггером
+      setTimeout(fetchReviews, 500);
+    } catch (err) {
+      console.error(err);
+      fetchReviews(); // откат при ошибке
+    }
   };
 
   const submitReview = async (e: React.FormEvent) => {
@@ -68,51 +131,51 @@ export function ReviewsTab({
 
     setSubmitting(true);
 
-    const { error } = await supabase
-      .from('reviews')
-      .insert({
-        content_id: contentId,
-        episode_id: episodeId || null,
-        user_id: user.id,
-        title: newReviewTitle.trim() || null,
-        text: newReviewText.trim(),
-        rating: newReviewRating,
-      });
+    try {
+      let ratingId: number | null = null;
 
-    if (!error) {
+      if (newReviewRating !== null) {
+        const { data: ratingData, error: ratingError } = await supabase
+          .from('ratings')
+          .insert({
+            user_id: user.id,
+            content_id: contentId,
+            episode_id: episodeId || null,
+            score: newReviewRating,
+          })
+          .select('id')
+          .single();
+
+        if (ratingError) throw ratingError;
+        ratingId = ratingData.id;
+      }
+
+      const { error: reviewError } = await supabase
+        .from('reviews')
+        .insert({
+          user_id: user.id,
+          content_id: contentId,
+          episode_id: episodeId || null,
+          rating_id: ratingId,
+          title: newReviewTitle.trim() || null,
+          text: newReviewText.trim(),
+          rating: newReviewRating,
+        });
+
+      if (reviewError) throw reviewError;
+
       setNewReviewText('');
       setNewReviewTitle('');
       setNewReviewRating(null);
-      fetchReviews();
-    } else {
-      alert('Ошибка при публикации рецензии');
+      await fetchReviews();
+
+    } catch (error: any) {
+      console.error('Ошибка создания рецензии:', error);
+      alert(`Не удалось опубликовать рецензию: ${error.message || 'Проверьте консоль'}`);
+    } finally {
+      setSubmitting(false);
     }
-
-    setSubmitting(false);
   };
-
-  const toggleLike = async (reviewId: number) => {
-    if (!user) return alert('Войдите в аккаунт');
-
-    // Удаляем старый лайк
-    await supabase
-      .from('votes')
-      .delete()
-      .eq('user_id', user.id)
-      .eq('review_id', reviewId);
-
-    // Ставим новый
-    await supabase
-      .from('votes')
-      .insert({
-        user_id: user.id,
-        review_id: reviewId,
-        value: 1,
-      });
-
-    fetchReviews();
-  };
-  
 
   return (
     <div className="space-y-10">
@@ -188,43 +251,52 @@ export function ReviewsTab({
             {episodeId ? 'Пока нет рецензий на эту серию.' : 'Пока нет рецензий. Будьте первым!'}
           </p>
         ) : (
-          reviews.map(review => (
-            <div key={review.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-              <div className="flex items-center gap-4 mb-4">
-                <img
-                  src={review.profiles.avatar_url || '/default-avatar.png'}
-                  alt=""
-                  className="w-10 h-10 rounded-full object-cover"
-                />
-                <div>
-                  <p className="font-semibold text-[#d9d9d9]">@{review.profiles.username}</p>
-                  <p className="text-xs text-zinc-500">
-                    {new Date(review.created_at).toLocaleDateString('ru-RU')}
-                  </p>
+          reviews.map((review) => {
+            const isLiked = likedReviews.has(review.id);
+
+            return (
+              <div key={review.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+                <div className="flex items-center gap-4 mb-4">
+                  <img
+                    src={review.profiles.avatar_url || '/default-avatar.png'}
+                    alt=""
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                  <div>
+                    <p className="font-semibold text-[#d9d9d9]">@{review.profiles.username}</p>
+                    <p className="text-xs text-zinc-500">
+                      {new Date(review.created_at).toLocaleDateString('ru-RU')}
+                    </p>
+                  </div>
+                </div>
+
+                {review.title && <h3 className="text-lg font-semibold text-white mb-3">{review.title}</h3>}
+                
+                <p className="text-zinc-300 leading-relaxed whitespace-pre-wrap">{review.text}</p>
+
+                {review.rating && (
+                  <div className="mt-4 inline-block bg-zinc-800 text-[#FFD700] px-4 py-1 rounded-full text-sm">
+                    Оценка: {review.rating}/10
+                  </div>
+                )}
+
+                <div className="flex items-center gap-6 mt-5">
+                  <button
+                    type="button"   // ← важно
+                    onClick={() => toggleLike(review.id)}
+                    className={`flex items-center gap-2 transition cursor-pointer ${
+                      isLiked ? 'text-purple-500' : 'text-zinc-400 hover:text-purple-500'
+                    }`}
+                  >
+                    <Heart 
+                      className={`w-5 h-5 transition ${isLiked ? 'fill-current' : ''}`} 
+                    />
+                    <span className="font-medium">{Math.max(0, review.likes_count)}</span>
+                  </button>
                 </div>
               </div>
-
-              {review.title && <h3 className="text-lg font-semibold text-white mb-3">{review.title}</h3>}
-              
-              <p className="text-zinc-300 leading-relaxed whitespace-pre-wrap">{review.text}</p>
-
-              {review.rating && (
-                <div className="mt-4 inline-block bg-zinc-800 text-[#FFD700] px-4 py-1 rounded-full text-sm">
-                  Оценка: {review.rating}/10
-                </div>
-              )}
-
-              <div className="flex items-center gap-6 mt-5">
-                <button
-                  onClick={() => toggleLike(review.id)}
-                  className="flex items-center gap-2 text-zinc-400 hover:text-purple-500 transition cursor-pointer"
-                >
-                  <Heart className="w-5 h-5" />
-                  <span>{review.likes_count}</span>
-                </button>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

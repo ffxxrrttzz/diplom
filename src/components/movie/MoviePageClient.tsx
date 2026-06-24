@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuthStore } from '@/store/auth-store';
 import { AuthHeader } from '@/components/layout/AuthHeader';
 import { GuestHeader } from '@/components/layout/GuestHeader';
 import { ReviewsTab } from './ReviewsTab';
-import { ThreadsTab } from './ThreadsTab';
+import { ThreadsTab } from '@/components/profile/tabs/ThreadsTab';
 import { RatingModal } from './RatingModal';
 import { WatchlistModal } from './WatchlistModal';
 import SeasonEpisodeList from '@/components/movie/SeasonEpisodeList';
@@ -22,7 +22,24 @@ type SeasonWithEpisodes = {
   }[];
 };
 
+type AverageRatings = {
+  all: number | null;
+  withReview: number | null;
+};
+
 export function MoviePageClient({ content }: { content: any }) {
+  // Защита от отсутствующего контента
+  if (!content || !content.id) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-white mb-4">Контент не найден</h1>
+          <p className="text-zinc-400">Возможно, такой фильм/сериал ещё не добавлен в базу.</p>
+        </div>
+      </div>
+    );
+  }
+
   const [activeTab, setActiveTab] = useState<'reviews' | 'threads'>('reviews');
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [showWatchlistModal, setShowWatchlistModal] = useState(false);
@@ -30,31 +47,81 @@ export function MoviePageClient({ content }: { content: any }) {
   const [loadingSeasons, setLoadingSeasons] = useState(false);
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<number | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
+  const [averageRatings, setAverageRatings] = useState<AverageRatings>({ all: null, withReview: null });
 
   const { user } = useAuthStore();
   const isSeries = ['series', 'anime'].includes(content.type);
 
-  // Загрузка сезонов
+  const fetchAverageRatings = useCallback(async () => {
+    const supabase = createClient();
+
+    const [allRes, reviewRes] = await Promise.all([
+      supabase.from('user_ratings').select('rating').eq('content_id', content.id),
+      supabase.from('reviews').select('rating').eq('content_id', content.id).not('rating', 'is', null)
+    ]);
+
+    const allRatings = allRes.data || [];
+    const reviewRatings = reviewRes.data || [];
+
+    const avgAll = allRatings.length 
+      ? Number((allRatings.reduce((sum, r) => sum + (r.rating || 0), 0) / allRatings.length).toFixed(1))
+      : null;
+
+    const avgWithReview = reviewRatings.length 
+      ? Number((reviewRatings.reduce((sum, r) => sum + (r.rating || 0), 0) / reviewRatings.length).toFixed(1))
+      : null;
+
+    setAverageRatings({ all: avgAll, withReview: avgWithReview });
+  }, [content.id]);
+
   useEffect(() => {
-    if (!user || !content.id) return;
-
-    const fetchStatus = async () => {
+    const fetchData = async () => {
       const supabase = createClient();
-      const { data } = await supabase
-        .from('user_content_status')
-        .select('status')
-        .eq('user_id', user.id)
-        .eq('content_id', content.id)
-        .maybeSingle();
 
-      setCurrentStatus(data?.status || null);
+      // Статус просмотра
+      if (user) {
+        const { data: statusData } = await supabase
+          .from('user_content_status')
+          .select('status')
+          .eq('user_id', user.id)
+          .eq('content_id', content.id)
+          .maybeSingle();
+
+        setCurrentStatus(statusData?.status || null);
+      }
+
+      // Сезоны
+      if (isSeries) {
+        setLoadingSeasons(true);
+        const { data } = await supabase
+          .from('seasons')
+          .select(`
+            id, 
+            season_number,
+            episodes(id, episode_number, title, description)
+          `)
+          .eq('content_id', content.id)
+          .order('season_number', { ascending: true });
+
+        setSeasons((data || []).map(s => ({
+          id: s.id,
+          season_number: s.season_number,
+          episodes: s.episodes || [],
+        })));
+        setLoadingSeasons(false);
+      }
+
+      // Средние оценки
+      await fetchAverageRatings();
     };
 
-    fetchStatus();
-  }, [user, content.id]);
+    fetchData();
+  }, [content.id, user, isSeries, fetchAverageRatings]);
 
-  const handleStatusChange = (status: string) => {
-    setCurrentStatus(status);
+  const handleStatusChange = (status: string) => setCurrentStatus(status);
+
+  const handleRatingSubmitted = () => {
+    fetchAverageRatings();
   };
 
   const statusLabels: Record<string, string> = {
@@ -87,16 +154,27 @@ export function MoviePageClient({ content }: { content: any }) {
               <p className="text-zinc-500 text-xl mb-6">{content.original_title}</p>
             )}
 
-            {/* Оценки, описание и т.д. — оставляем как было */}
+            {/* Средние оценки */}
             <div className="flex gap-8 my-8">
               <div className="group relative cursor-pointer">
                 <div className="text-6xl font-bold text-purple-500">
-                  {content.rating?.toFixed(1) || '—'}
+                  {averageRatings.all?.toFixed(1) || '—'}
                 </div>
-                <div className="absolute hidden group-hover:block bg-zinc-800 text-xs px-3 py-2 rounded-lg -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap z-10">
-                  Рейтинг Kinopoisk
+                <div className="absolute hidden group-hover:block bg-zinc-800 text-xs text-[#d9d9d9] px-3 py-2 rounded-lg -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap z-10">
+                  Средняя оценка всех пользователей
                 </div>
               </div>
+
+              {averageRatings.withReview && (
+                <div className="group relative cursor-pointer">
+                  <div className="text-6xl font-bold text-[#FFD700]">
+                    {averageRatings.withReview.toFixed(1)}
+                  </div>
+                  <div className="absolute hidden group-hover:block bg-zinc-800 text-xs text-[#d9d9d9] px-3 py-2 rounded-lg -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap z-10">
+                    Средняя оценка с рецензиями
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Описание */}
@@ -118,16 +196,12 @@ export function MoviePageClient({ content }: { content: any }) {
               {content.age_rating && (
                 <p><span className="text-zinc-500">Возраст:</span> {content.age_rating}</p>
               )}
-
-              {/* Режиссёры */}
               {content.directors?.length > 0 && (
                 <p>
                   <span className="text-zinc-500">Режиссёр{content.directors.length > 1 ? 'ы' : ''}:</span>{' '}
                   {content.directors.join(', ')}
                 </p>
               )}
-
-              {/* Актёры */}
               {content.actors?.length > 0 && (
                 <p>
                   <span className="text-zinc-500">В главных ролях:</span>{' '}
@@ -137,15 +211,23 @@ export function MoviePageClient({ content }: { content: any }) {
               )}
             </div>
 
-            {/* === ВЫБОР СЕЗОНОВ И СЕРИЙ === */}
-            {isSeries && seasons.length > 0 && (
+            {/* Сезоны и серии */}
+            {isSeries && (
               <div className="mb-12">
-                <SeasonEpisodeList
-                  seasons={seasons}
-                  contentId={content.id}
-                  selectedEpisodeId={selectedEpisodeId}
-                  onEpisodeSelect={setSelectedEpisodeId}
-                />
+                {loadingSeasons ? (
+                  <div className="bg-[#121216] rounded-3xl p-8 text-center text-zinc-500">Загрузка сезонов...</div>
+                ) : seasons.length > 0 ? (
+                  <SeasonEpisodeList
+                    seasons={seasons}
+                    contentId={content.id}
+                    selectedEpisodeId={selectedEpisodeId}
+                    onEpisodeSelect={setSelectedEpisodeId}
+                  />
+                ) : (
+                  <div className="bg-[#121216] rounded-3xl p-8 text-center text-zinc-500">
+                    Информация о сезонах пока отсутствует
+                  </div>
+                )}
               </div>
             )}
 
@@ -177,17 +259,20 @@ export function MoviePageClient({ content }: { content: any }) {
               </button>
             </div>
 
-            {activeTab === 'reviews' && (
-              <ReviewsTab contentId={content.id} episodeId={selectedEpisodeId} />
-            )}
-            {activeTab === 'threads' && (
-              <ThreadsTab contentId={content.id} episodeId={selectedEpisodeId} />
-            )}
+            {activeTab === 'reviews' && <ReviewsTab contentId={content.id} episodeId={selectedEpisodeId} />}
+            {activeTab === 'threads' && <ThreadsTab contentId={content.id} episodeId={selectedEpisodeId} />}
           </div>
         </div>
       </div>
 
-      {showRatingModal && <RatingModal contentId={content.id} onClose={() => setShowRatingModal(false)} />}
+      {showRatingModal && (
+        <RatingModal 
+          contentId={content.id} 
+          onClose={() => setShowRatingModal(false)} 
+          onRatingSubmitted={handleRatingSubmitted}
+        />
+      )}
+
       {showWatchlistModal && (
         <WatchlistModal 
           contentId={content.id} 

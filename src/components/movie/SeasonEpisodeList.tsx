@@ -35,7 +35,7 @@ export default function SeasonEpisodeList({
 
   return (
     <div className="bg-[#121216] rounded-3xl p-8">
-      <h3 className="text-2xl font-semibold mb-8">Сезоны и серии</h3>
+      <h3 className="text-2xl text-[#d9d9d9] font-semibold mb-8">Сезоны и серии</h3>
 
       <div className="flex gap-8">
         {/* Вертикальный список сезонов */}

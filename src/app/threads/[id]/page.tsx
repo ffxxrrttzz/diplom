@@ -1,24 +1,34 @@
 import { createClient } from '@/lib/supabase/server';
 import { ThreadClient } from '@/components/thread/ThreadClient';
-import type { Database } from '@/types/database.types';
+import { notFound } from 'next/navigation';
 
 export default async function ThreadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const threadId = parseInt(id);
+  const threadId = parseInt(id, 10);
 
-  const supabase = await createClient();   // ← await здесь обязателен!
+  if (isNaN(threadId)) notFound();
 
-  const { data: thread } = await supabase
+  const supabase = await createClient();
+
+  const { data: thread, error } = await supabase
     .from('threads')
     .select(`
       *,
-      author:profiles (id, username, avatar_url, banner_url)
+      author:profiles!threads_user_id_fkey (id, username, avatar_url),
+      content_info:content (id, title, type, poster_url),
+      episodes (
+        id, 
+        episode_number, 
+        title,
+        season:seasons (season_number)
+      )
     `)
     .eq('id', threadId)
-    .maybeSingle();
+    .single();
 
-  if (!thread) {
-    return <div className="text-center py-20">Тред не найден</div>;
+  if (error || !thread) {
+    console.error('Thread error:', error);
+    notFound();
   }
 
   const { data: comments } = await supabase

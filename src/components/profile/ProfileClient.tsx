@@ -24,7 +24,7 @@ export function ProfileClient({ profile, data, currentUser }: ProfileClientProps
   const [posts, setPosts] = useState(data.posts || []);
   const [isFollowersOpen, setIsFollowersOpen] = useState(false);
   const [isFollowingOpen, setIsFollowingOpen] = useState(false);
-  
+
   const [watchlistModal, setWatchlistModal] = useState<{
     open: boolean;
     status: 'watching' | 'watched' | 'planned';
@@ -41,9 +41,9 @@ export function ProfileClient({ profile, data, currentUser }: ProfileClientProps
 
   return (
     <div className="container mx-auto px-4 max-w-[1440px]" suppressHydrationWarning>
-      <ProfileHeader 
-        profile={profile} 
-        stats={data.stats} 
+      <ProfileHeader
+        profile={profile}
+        stats={data.stats}
         currentUser={currentUser}
         onFollowersClick={() => setIsFollowersOpen(true)}
         onFollowingClick={() => setIsFollowingOpen(true)}
@@ -56,7 +56,7 @@ export function ProfileClient({ profile, data, currentUser }: ProfileClientProps
 
       <div className="mt-6">
         {activeTab === 'posts' && (
-          <PostsTab 
+          <PostsTab
             userId={profile.id}
             posts={posts}
             onPostCreated={refreshPosts}
@@ -65,7 +65,9 @@ export function ProfileClient({ profile, data, currentUser }: ProfileClientProps
         )}
         {activeTab === 'reviews' && <ReviewsTab reviews={data.reviews} currentUser={currentUser} />}
         {activeTab === 'ratings' && <RatingsTab ratings={data.ratings} currentUser={currentUser} />}
-        {activeTab === 'threads' && <ThreadsTab threads={data.threads} currentUser={currentUser} />}
+        {activeTab === 'threads' && (
+          <ThreadsTab userId={profile.id} isProfileTab={true} />
+        )}
       </div>
 
       <FollowersModal
