@@ -24,6 +24,7 @@ export function ProfileClient({ profile, data, currentUser }: ProfileClientProps
   const [posts, setPosts] = useState(data.posts || []);
   const [isFollowersOpen, setIsFollowersOpen] = useState(false);
   const [isFollowingOpen, setIsFollowingOpen] = useState(false);
+  const isOwner = currentUser?.id === profile?.id;
 
   const [watchlistModal, setWatchlistModal] = useState<{
     open: boolean;
@@ -49,7 +50,7 @@ export function ProfileClient({ profile, data, currentUser }: ProfileClientProps
         onFollowingClick={() => setIsFollowingOpen(true)}
         onWatchingClick={() => openWatchlist('watching', 'Смотрю')}
         onWatchedClick={() => openWatchlist('watched', 'Просмотрено')}
-        onPlannedClick={() => openWatchlist('planned', 'В планах')} isOwner={false}      />
+        onPlannedClick={() => openWatchlist('planned', 'В планах')} isOwner={isOwner}  />
 
       <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />
 

@@ -33,7 +33,7 @@ export default function ProfileHeader({
 
   return (
     <>
-      {/* Баннер (восстановлен) */}
+      {/* Баннер */}
       <div 
         className="h-[280px] lg:h-[360px] rounded-[20px] overflow-hidden bg-zinc-800 relative mb-[-80px]"
         suppressHydrationWarning
@@ -92,20 +92,20 @@ export default function ProfileHeader({
                 </ClientOnly>
               </div>
 
+              {/* === Кнопки действий === */}
               <div className="flex items-center gap-3 self-start lg:self-auto">
-                {!isOwner && currentUser && (
-                  <FollowButton 
-                    followingId={profile.id} 
-                    initialIsFollowing={stats.isFollowing || false} 
-                  />
-                )}
-                {isOwner && (
+                {isOwner ? (
                   <Link
                     href="/profile/edit"
-                    className="flex items-center gap-2 px-6 py-2 bg-purple-600 hover:bg-purple-700 rounded-[20px] text-[16px] font-medium text-white transition-colors"
+                    className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-[20px] text-[16px] font-medium text-white transition-colors"
                   >
-                    <Edit className="w-4 h-4" /> Редактировать
+                    <Edit className="w-4 h-4" /> Редактировать профиль
                   </Link>
+                ) : (
+                  <FollowButton 
+                    followingId={profile?.id} 
+                    initialIsFollowing={stats?.isFollowing || false} 
+                  />
                 )}
               </div>
             </div>
